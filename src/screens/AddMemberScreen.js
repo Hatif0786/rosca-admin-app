@@ -40,9 +40,10 @@ export default function AddMemberScreen({ navigation }) {
           style={styles.header}
           start={{x:0, y:0}} end={{x:1, y:1}}
         >
-          <IconButton icon="arrow-left" iconColor="#D4AF37" onPress={() => navigation.goBack()} />
-          <Title style={styles.headerTitle}>Member Registration</Title>
-          <Text style={styles.headerSubtitle}>Add a trusted member to your Wasla network</Text>
+          <IconButton icon="arrow-left" iconColor="#D4AF37" onPress={() => navigation.goBack()} style={{ marginLeft: -12, marginBottom: 8 }} />
+          <Text style={styles.arabicHeading}>تسجيل عضو جديد</Text>
+          <Title style={styles.headerTitle}>New Member</Title>
+          <Text style={styles.headerSubtitle}>Add a trusted participant to your network</Text>
         </LinearGradient>
 
         <View style={styles.content}>
@@ -101,8 +102,31 @@ export default function AddMemberScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   header: { padding: 24, paddingTop: 50, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
-  headerTitle: { color: '#D4AF37', fontSize: 26, fontWeight: 'bold', fontFamily: 'serif', marginTop: 10 },
-  headerSubtitle: { color: 'rgba(255,255,255,0.7)', fontSize: 14, marginTop: 4 },
+  arabicHeading: {
+    color: '#D4AF37',
+    fontSize: 12,
+    fontWeight: 'bold',
+    fontFamily: 'serif',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: 'bold',
+    fontFamily: 'serif',
+    letterSpacing: 0.5,
+    lineHeight: 32,
+  },
+  headerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
   content: { flex: 1, padding: 20, marginTop: -30 },
   surface: {
     padding: 24,

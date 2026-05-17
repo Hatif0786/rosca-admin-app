@@ -1,12 +1,44 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, useColorScheme, Animated } from 'react-native';
-import { Title, useTheme, Text, Surface, ProgressBar, IconButton, Button } from 'react-native-paper';
+import { View, StyleSheet, ScrollView, useColorScheme, Animated, TouchableOpacity, Dimensions, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { Title, useTheme, Text, Surface, ProgressBar, IconButton, Button, Paragraph, Avatar } from 'react-native-paper';
 import { useStore } from '../store/useStore';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { supabase } from '../lib/supabase';
+import Icon from '@expo/vector-icons/MaterialCommunityIcons';
+import { format } from 'date-fns';
+
+const { width } = Dimensions.get('window');
+
+function SkeletonCard({ style }) {
+  const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(shimmerAnim, { toValue: 0, duration: 1000, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+
+  const opacity = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.3, 0.7],
+  });
+
+  return <Animated.View style={[style, { opacity, backgroundColor: '#E5E7EB' }]} />;
+}
+
+const BARAKAH_AYAHS = [
+  { text: 'لَئِن شَكَرْتُمْ لَأَزِيدَنَّكُمْ', ref: 'SURAH IBRAHIM 14:7' },
+  { text: 'وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ', ref: 'SURAH AT-TALAQ 65:2-3' },
+  { text: 'يَمْحَقُ اللَّهُ الرِّبَا وَيُرْبِي الصَّدَقَاتِ', ref: 'SURAH AL-BAQARAH 2:276' },
+  { text: 'إِنَّ اللَّهَ هُوَ الرَّزَّاقُ ذُو الْقُوَّةِ الْمَتِينُ', ref: 'SURAH ADH-DHARIYAT 51:58' },
+  { text: 'وَمَا أَنفَقْتُم مِّن شَيْءٍ فَهو يُخْلِفُهُ', ref: 'SURAH SABA 34:39' },
+];
 
 export default function DashboardScreen({ navigation }) {
   const committees = useStore((state) => state.committees);
@@ -14,229 +46,298 @@ export default function DashboardScreen({ navigation }) {
   const importState = useStore((state) => state.importState);
   const fetchData = useStore((state) => state.fetchData);
   const [adminName, setAdminName] = useState('Admin');
+  const [loading, setLoading] = useState(true);
+  const [showAdminControls, setShowAdminControls] = useState(false);
+  const [selectedAyah, setSelectedAyah] = useState(BARAKAH_AYAHS[0]);
   const theme = useTheme();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
-
-  // --- Backup & Restore Logic ---
-  const handleExport = async () => {
-    try {
-      const fullState = { committees, members };
-      const jsonString = JSON.stringify(fullState);
-      const fileName = `CommitteeBox_Backup_${format(new Date(), 'yyyy-MM-dd')}.json`;
-      const fileUri = `${FileSystem.cacheDirectory}${fileName}`;
-      
-      await FileSystem.writeAsStringAsync(fileUri, jsonString);
-      await Sharing.shareAsync(fileUri);
-    } catch (e) {
-      console.log('Export failed', e);
-      alert('Backup failed. Please try again.');
-    }
-  };
-
-  const handleImport = async () => {
-    try {
-      const result = await DocumentPicker.getDocumentAsync({
-        type: 'application/json',
-        copyToCacheDirectory: true,
-      });
-
-      if (result.canceled) return;
-
-      const fileUri = result.assets[0].uri;
-      const content = await FileSystem.readAsStringAsync(fileUri);
-      const importedData = JSON.parse(content);
-
-      if (importedData.committees && importedData.members) {
-        importState(importedData);
-        alert('Data Restored Successfully!');
-      } else {
-        alert('Invalid backup file. Please select a valid Committee Box backup.');
-      }
-    } catch (e) {
-      console.log('Import failed', e);
-      alert('Restore failed. Ensure the file is a valid JSON backup.');
-    }
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
-  // Animations
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
-  const scaleAnim = useRef(new Animated.Value(0.9)).current;
-
-  useEffect(() => {
-    // Initial fetch
-    fetchData();
-    
-    // Get Admin Name
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (user?.user_metadata?.display_name) {
-        setAdminName(user.user_metadata.display_name);
-      }
-    });
-
-    Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
-      Animated.spring(scaleAnim, { toValue: 1, friction: 6, useNativeDriver: true }),
-    ]).start();
-  }, []);
-
-  // Metrics
-  const totalMembers = members.length;
-  const activeCommitteesCount = committees.filter(c => (c.payouts?.length || 0) < (c.members?.length || 0)).length;
-  const completedCommitteesCount = committees.length - activeCommitteesCount;
-  
-  const totalMoneyManaged = committees.reduce((acc, c) => acc + c.totalAmount * c.cycles * (c.frequency === 'Weekly' ? (c.payoutsPerCycle || 2) : 1), 0);
-  const totalDisbursed = committees.reduce((acc, c) => acc + c.payouts.reduce((a, p) => a + p.amount, 0), 0);
-  const totalCollected = committees.reduce((acc, c) => {
-    const perPayment = c.frequency === 'Weekly' ? c.weeklyContribution : c.contributionAmount;
-    return acc + c.contributions.filter(co => co.status === 'paid').length * perPayment;
-  }, 0);
-
-  // Pending payouts
-  let pendingPayouts = [];
-  committees.forEach(c => {
-    const paymentsPerCycle = c.paymentsPerCycle || 1;
-    const payoutsPerCycle = c.frequency === 'Weekly' ? (c.payoutsPerCycle || 2) : 1;
-    c.schedule.forEach(s => {
-      const totalNeeded = c.members.length * paymentsPerCycle;
-      const totalMade = c.contributions.filter(co => co.cycleNumber === s.cycleNumber && co.status === 'paid').length;
-      const cyclePays = c.payouts.filter(p => p.cycleNumber === s.cycleNumber);
-      if (totalMade >= totalNeeded && cyclePays.length < payoutsPerCycle) {
-        pendingPayouts.push({ committeeId: c.id, committeeName: c.name, label: s.label, amount: c.totalAmount });
-      }
-    });
-  });
-
-  // Active collections
-  let activeCollections = [];
-  committees.filter(c => (c.payouts?.length || 0) < (c.members?.length || 0)).forEach(c => {
-    const paymentsPerCycle = c.paymentsPerCycle || 1;
-    const activeCycle = c.schedule.find(s => {
-      const totalNeeded = c.members.length * paymentsPerCycle;
-      const totalMade = c.contributions.filter(co => co.cycleNumber === s.cycleNumber && co.status === 'paid').length;
-      return totalMade < totalNeeded;
-    });
-    if (activeCycle) {
-      const totalNeeded = c.members.length * paymentsPerCycle;
-      const totalMade = c.contributions.filter(co => co.cycleNumber === activeCycle.cycleNumber && co.status === 'paid').length;
-      activeCollections.push({
-        committeeId: c.id, committeeName: c.name, label: activeCycle.label,
-        progress: totalMade / totalNeeded, paid: totalMade, total: totalNeeded,
-      });
-    }
-  });
+  const isDark = useColorScheme() === 'dark';
 
   const themePreference = useStore((state) => state.themePreference);
   const setThemePreference = useStore((state) => state.setThemePreference);
-
   const toggleTheme = () => {
     const next = themePreference === 'light' ? 'dark' : themePreference === 'dark' ? 'system' : 'light';
     setThemePreference(next);
   };
-
   const themeIcon = themePreference === 'light' ? 'weather-sunny' : themePreference === 'dark' ? 'weather-night' : 'brightness-auto';
+
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    // Select a random Ayah for this session
+    setSelectedAyah(BARAKAH_AYAHS[Math.floor(Math.random() * BARAKAH_AYAHS.length)]);
+    
+    const loadData = async () => {
+      await fetchData();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.user_metadata) {
+        setAdminName(user.user_metadata.full_name || user.user_metadata.display_name || user.user_metadata.name || 'Admin');
+      }
+      setLoading(false);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    };
+    loadData();
+  }, []);
+
+  // Dynamic Transaction Aggregator for Live Activity Feed
+  let allTransactions = [];
+  committees.forEach(c => {
+    // 1. Paid Contributions
+    (c.contributions || []).forEach(con => {
+      if (con.status === 'paid') {
+        const m = members.find(mem => mem.id === con.memberId);
+        allTransactions.push({
+          id: `${c.id}_con_${con.memberId}_${con.cycleNumber}_${con.paymentNumber}`,
+          type: 'Contribution',
+          amount: c.weeklyContribution || c.contributionAmount,
+          memberName: m ? m.name : 'Unknown',
+          committeeName: c.name,
+          date: c.start_date,
+          label: c.frequency === 'Weekly' ? `W${con.paymentNumber} • Cycle ${con.cycleNumber}` : `Cycle ${con.cycleNumber}`
+        });
+      }
+    });
+    
+    // 2. Disbursed Payouts
+    (c.payouts || []).forEach(p => {
+      const m = members.find(mem => mem.id === p.memberId);
+      allTransactions.push({
+        id: `${c.id}_pay_${p.memberId}_${p.cycleNumber}`,
+        type: 'Payout',
+        amount: p.amount,
+        memberName: m ? m.name : 'Unknown',
+        committeeName: c.name,
+        date: p.date,
+        label: `Cycle ${p.cycleNumber} Disbursed`
+      });
+    });
+  });
+  
+  // Sort by date (newest first)
+  allTransactions.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+
+  // --- Metrics ---
+  const activeCommitteesCount = committees.filter(c => (c.payouts?.length || 0) < (c.members?.length || 0)).length;
+  const totalMoneyManaged = committees.reduce((acc, c) => acc + (Number(c.totalAmount) * Number(c.cycles)), 0);
+  const totalDisbursed = committees.reduce((acc, c) => acc + (c.payouts?.reduce((a, p) => a + Number(p.amount), 0) || 0), 0);
+  
+  let pendingPayoutsCount = 0;
+  committees.forEach(c => {
+    const payoutsPerCycle = c.frequency === 'Weekly' ? (c.payoutsPerCycle || 2) : 1;
+    c.schedule?.forEach(s => {
+      const totalNeeded = c.members.length * (c.paymentsPerCycle || 1);
+      const totalMade = (c.contributions || []).filter(co => co.cycleNumber === s.cycleNumber && co.status === 'paid').length;
+      const cyclePays = (c.payouts || []).filter(p => p.cycleNumber === s.cycleNumber);
+      if (totalMade >= totalNeeded && cyclePays.length < payoutsPerCycle) pendingPayoutsCount++;
+    });
+  });
+
+  const handleLogout = async () => await supabase.auth.signOut();
+  const handleExport = async () => {
+    try {
+      const isSharingAvailable = await Sharing.isAvailableAsync();
+      if (!isSharingAvailable) {
+        alert("Sharing is not available on this device");
+        return;
+      }
+
+      const fileUri = `${FileSystem.documentDirectory}Wasla_Backup.json`;
+      const backupData = JSON.stringify({ committees, members }, null, 2);
+      await FileSystem.writeAsStringAsync(fileUri, backupData);
+      
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/json',
+        dialogTitle: 'Wasla Backup Data',
+        UTI: 'public.json'
+      });
+    } catch (e) { 
+      console.error(e);
+      alert('Backup failed: ' + e.message); 
+    }
+  };
+
+  const handleImport = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: 'application/json' });
+    if (result.canceled) return;
+    try {
+      const uri = result.assets ? result.assets[0].uri : result.uri;
+      const content = await FileSystem.readAsStringAsync(uri);
+      const data = JSON.parse(content);
+      if (data.committees && data.members) { importState(data); alert('Restored!'); }
+    } catch (e) { alert('Restore failed.'); }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+        <View style={[styles.heroHeader, { backgroundColor: '#064E3B' }]}>
+          <SkeletonCard style={{ width: 150, height: 20, borderRadius: 10, marginBottom: 10 }} />
+          <SkeletonCard style={{ width: 200, height: 40, borderRadius: 10 }} />
+          <SkeletonCard style={[styles.mainBalanceBox, { height: 180, marginTop: 30, width: '100%' }]} />
+        </View>
+        <View style={styles.content}>
+          <SkeletonCard style={[styles.summaryPanel, { height: 100 }]} />
+          <SkeletonCard style={[styles.toolCard, { height: 150, marginTop: 30 }]} />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={[styles.header, { backgroundColor: '#064E3B', paddingBottom: 30, borderBottomLeftRadius: 30, borderBottomRightRadius: 30 }]}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Title style={[styles.headerTitle, { color: '#D4AF37', fontSize: 32, fontWeight: 'bold', fontFamily: 'serif' }]}>وصلة</Title>
-          <View style={{ flexDirection: 'row' }}>
-            <IconButton icon={themeIcon} iconColor="#D4AF37" size={24} onPress={toggleTheme} />
-            <IconButton icon="logout" iconColor="#D4AF37" size={24} onPress={handleLogout} />
+      <Animated.ScrollView 
+        style={{ opacity: fadeAnim }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <LinearGradient colors={['#064E3B', '#022C22']} style={styles.heroHeader}>
+          <View style={styles.headerTop}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <Icon name="rhombus-split" size={38} color="#D4AF37" style={{ marginRight: 12 }} />
+              <View>
+                <Text style={styles.arabicHeading}>أهلاً وسهلاً</Text>
+                <Title style={styles.headerTitle}>بيت المال</Title>
+                <Text style={styles.headerSubtitle}>Welcome, {adminName}</Text>
+              </View>
+            </View>
+            <View style={styles.headerActions}>
+              <IconButton 
+                icon={showAdminControls ? "cog" : "cog-outline"} 
+                iconColor="#D4AF37" 
+                size={24} 
+                style={{ margin: 0 }}
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setShowAdminControls(!showAdminControls);
+                }} 
+              />
+              <IconButton icon={themeIcon} iconColor="#D4AF37" size={24} style={{ margin: 0 }} onPress={toggleTheme} />
+              <IconButton icon="logout" iconColor="#D4AF37" size={24} style={{ margin: 0 }} onPress={handleLogout} />
+            </View>
+          </View>
+          
+          <Surface style={styles.mainBalanceBox} elevation={0}>
+            <Text style={styles.balanceLabel}>TOTAL VOLUME UNDER MANAGEMENT</Text>
+            <Text style={styles.balanceValue}>Rs {totalMoneyManaged.toLocaleString()}</Text>
+            <View style={styles.balanceStats}>
+              <View style={styles.balItem}>
+                <Text style={styles.balLabel}>DISBURSED</Text>
+                <Text style={styles.balValue}>Rs {totalDisbursed.toLocaleString()}</Text>
+              </View>
+              <View style={styles.balDivider} />
+              <View style={styles.balItem}>
+                <Text style={styles.balLabel}>AVAILABLE</Text>
+                <Text style={styles.balValue}>Rs {(totalMoneyManaged - totalDisbursed).toLocaleString()}</Text>
+              </View>
+            </View>
+          </Surface>
+        </LinearGradient>
+
+        <View style={styles.content}>
+          <Surface style={[styles.summaryPanel, { backgroundColor: theme.colors.surface }]} elevation={2}>
+            <View style={styles.metricRow}>
+              <TouchableOpacity style={styles.metricItem} onPress={() => navigation.navigate('Committees')}>
+                <Icon name="chart-box-outline" size={22} color="#D4AF37" />
+                <Text style={[styles.metricNumber, { color: theme.colors.onSurface }]}>{activeCommitteesCount}</Text>
+                <Text style={styles.metricSub}>Active Groups</Text>
+              </TouchableOpacity>
+              <View style={styles.vDivider} />
+              <TouchableOpacity style={styles.metricItem} onPress={() => navigation.navigate('Members')}>
+                <Icon name="account-group-outline" size={22} color="#D4AF37" />
+                <Text style={[styles.metricNumber, { color: theme.colors.onSurface }]}>{members.length}</Text>
+                <Text style={styles.metricSub}>Total Members</Text>
+              </TouchableOpacity>
+              <View style={styles.vDivider} />
+              <TouchableOpacity style={styles.metricItem} onPress={() => navigation.navigate('Committees')}>
+                <Icon name="clock-alert-outline" size={22} color={pendingPayoutsCount > 0 ? '#ef4444' : '#10b981'} />
+                <Text style={[styles.metricNumber, { color: theme.colors.onSurface }]}>{pendingPayoutsCount}</Text>
+                <Text style={styles.metricSub}>Open Payouts</Text>
+              </TouchableOpacity>
+            </View>
+          </Surface>
+
+          {/* --- Live Recent Activity Feed --- */}
+          <View style={styles.section}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, paddingHorizontal: 4 }}>
+              <Title style={[styles.sectionHeader, { color: theme.colors.onSurface, marginBottom: 0 }]}>Recent Activity</Title>
+              <Button mode="text" compact onPress={() => navigation.navigate('Ledger')} textColor="#D4AF37" labelStyle={{ fontWeight: 'bold' }}>View All</Button>
+            </View>
+            
+            {allTransactions.length === 0 ? (
+              <Surface style={[styles.toolCard, { backgroundColor: theme.colors.surface, padding: 24, alignItems: 'center', justifyContent: 'center' }]} elevation={1}>
+                <Icon name="swap-horizontal" size={32} color="#D4AF37" style={{ marginBottom: 8 }} />
+                <Text style={{ color: '#888', textAlign: 'center', fontSize: 13 }}>No recent transactions recorded yet.</Text>
+              </Surface>
+            ) : (
+              <Surface style={[styles.toolCard, { backgroundColor: theme.colors.surface, padding: 8 }]} elevation={1}>
+                {allTransactions.slice(0, 3).map((t, idx) => (
+                  <View key={t.id} style={{ padding: 12 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                        <Avatar.Icon 
+                          size={36} 
+                          icon={t.type === 'Payout' ? 'arrow-up-bold' : 'arrow-down-bold'} 
+                          backgroundColor={t.type === 'Payout' ? 'rgba(212, 175, 55, 0.12)' : 'rgba(16, 185, 129, 0.12)'} 
+                          color={t.type === 'Payout' ? '#D4AF37' : '#10b981'} 
+                        />
+                        <View style={{ marginLeft: 12, flex: 1 }}>
+                          <Text style={{ color: theme.colors.onSurface, fontWeight: 'bold', fontSize: 14 }} numberOfLines={1}>{t.memberName}</Text>
+                          <Text style={{ color: '#888', fontSize: 11 }} numberOfLines={1}>{t.committeeName} • {t.label}</Text>
+                        </View>
+                      </View>
+                      <Text style={{ fontWeight: 'bold', color: t.type === 'Payout' ? '#D4AF37' : '#10b981', fontSize: 15 }}>
+                        {t.type === 'Payout' ? '-' : '+'} Rs {t.amount.toLocaleString()}
+                      </Text>
+                    </View>
+                    {idx < 2 && idx < allTransactions.length - 1 && (
+                      <View style={[styles.hDivider, { backgroundColor: theme.colors.outline, marginTop: 12, marginHorizontal: 0 }]} />
+                    )}
+                  </View>
+                ))}
+              </Surface>
+            )}
+          </View>
+
+          {showAdminControls && (
+            <View style={styles.section}>
+              <Title style={[styles.sectionHeader, { color: theme.colors.onSurface }]}>Administrative Controls</Title>
+              <Surface style={[styles.toolCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
+                <TouchableOpacity style={styles.toolRow} onPress={handleExport}>
+                  <View style={styles.toolIconBox}>
+                    <Icon name="database-export-outline" size={22} color="#064E3B" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.toolTitle, { color: theme.colors.onSurface }]}>Export Local Backup</Text>
+                    <Text style={styles.toolHint}>Secure your entire ledger as a JSON file</Text>
+                  </View>
+                  <Icon name="chevron-right" size={24} color="#ccc" />
+                </TouchableOpacity>
+                
+                <View style={[styles.hDivider, { backgroundColor: theme.colors.outline }]} />
+                
+                <TouchableOpacity style={styles.toolRow} onPress={handleImport}>
+                  <View style={styles.toolIconBox}>
+                    <Icon name="database-import-outline" size={22} color="#064E3B" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.toolTitle, { color: theme.colors.onSurface }]}>Restore from Backup</Text>
+                    <Text style={styles.toolHint}>Import records from a previous export</Text>
+                  </View>
+                  <Icon name="chevron-right" size={24} color="#ccc" />
+                </TouchableOpacity>
+              </Surface>
+            </View>
+          )}
+          
+          <View style={styles.ayahRow}>
+            <Text style={styles.ayahText}>{selectedAyah.text}</Text>
+            <Text style={styles.ayahSub}>{selectedAyah.ref}</Text>
+          </View>
+
+          <View style={styles.copyrightRow}>
+            <Text style={styles.copyrightText}>© 2026 WASLA • DEVELOPED BY HATIF</Text>
+            <Text style={styles.copyrightSub}>ALL RIGHTS RESERVED • VERSION 1.0.0</Text>
           </View>
         </View>
-        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 18, fontWeight: '500', fontFamily: 'serif' }}>Marhaba, {adminName} 👋</Text>
-      </View>
-      
-      <Animated.ScrollView contentContainerStyle={styles.content}
-        style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
-
-        {/* Stats Grid */}
-        <Animated.View style={[styles.statsGrid, { transform: [{ scale: scaleAnim }] }]}>
-          <LinearGradient colors={isDark ? ['#667eea', '#764ba2'] : ['#6200EE', '#9D50BB']} style={styles.statCard} start={{x:0,y:0}} end={{x:1,y:1}}>
-            <Text style={styles.statEmoji}>📋</Text>
-            <Text style={styles.statNumber}>{activeCommitteesCount}</Text>
-            <Text style={styles.statLabel}>Active</Text>
-          </LinearGradient>
-          <LinearGradient colors={isDark ? ['#00c6ff', '#0072ff'] : ['#4facfe', '#00f2fe']} style={styles.statCard} start={{x:0,y:0}} end={{x:1,y:1}}>
-            <Text style={styles.statEmoji}>👥</Text>
-            <Text style={styles.statNumber}>{totalMembers}</Text>
-            <Text style={styles.statLabel}>Members</Text>
-          </LinearGradient>
-          <LinearGradient colors={isDark ? ['#f093fb', '#f5576c'] : ['#fa709a', '#fee140']} style={styles.statCard} start={{x:0,y:0}} end={{x:1,y:1}}>
-            <Text style={styles.statEmoji}>✅</Text>
-            <Text style={styles.statNumber}>{completedCommitteesCount}</Text>
-            <Text style={styles.statLabel}>Completed</Text>
-          </LinearGradient>
-        </Animated.View>
-
-        {/* Financial Summary */}
-        <Surface style={[styles.financialCard, { backgroundColor: theme.colors.surface, borderColor: '#eee', borderWidth: isDark ? 0 : 1 }]} elevation={2}>
-          <Title style={[styles.finTitle, { color: theme.colors.primary, fontFamily: 'serif' }]}>💰 Global Ledger</Title>
-          <View style={styles.finRow}>
-            <View style={styles.finItem}>
-              <Text style={{ color: isDark ? '#aaa' : '#666', fontSize: 11, fontWeight: 'bold' }}>COLLECTED</Text>
-              <Text style={[styles.finValue, { color: '#2e7d32' }]}>Rs {totalCollected.toLocaleString()}</Text>
-            </View>
-            <View style={[styles.finDivider, { backgroundColor: isDark ? 'rgba(212,175,55,0.2)' : 'rgba(6,78,59,0.1)' }]} />
-            <View style={styles.finItem}>
-              <Text style={{ color: isDark ? '#aaa' : '#666', fontSize: 11, fontWeight: 'bold' }}>DISBURSED</Text>
-              <Text style={[styles.finValue, { color: '#B8860B' }]}>Rs {totalDisbursed.toLocaleString()}</Text>
-            </View>
-            <View style={[styles.finDivider, { backgroundColor: isDark ? 'rgba(212,175,55,0.2)' : 'rgba(6,78,59,0.1)' }]} />
-            <View style={styles.finItem}>
-              <Text style={{ color: isDark ? '#aaa' : '#666', fontSize: 11, fontWeight: 'bold' }}>TOTAL</Text>
-              <Text style={[styles.finValue, { color: theme.colors.primary }]}>Rs {totalMoneyManaged.toLocaleString()}</Text>
-            </View>
-          </View>
-        </Surface>
-
-        {/* Pending Payouts */}
-        <Title style={[styles.sectionTitle, { color: theme.colors.onBackground, fontFamily: 'serif' }]}>⏳ Pending Payouts</Title>
-        {pendingPayouts.length === 0 ? (
-          <Surface style={[styles.surfaceCard, { backgroundColor: isDark ? 'rgba(76, 175, 80, 0.1)' : '#F0FDF4', borderColor: '#4caf50', borderWidth: isDark ? 0 : 1 }]} elevation={1}>
-            <Text style={{ color: '#2e7d32', fontWeight: '500' }}>✓ All caught up! No pending payouts.</Text>
-          </Surface>
-        ) : (
-          pendingPayouts.map((payout, idx) => (
-            <Surface key={idx} style={[styles.actionCard, { backgroundColor: isDark ? 'rgba(212, 175, 55, 0.1)' : '#FFFBEB', borderColor: '#D4AF37', borderWidth: 1 }]} elevation={2}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: '#B8860B', fontWeight: 'bold', fontSize: 15 }}>💰 Payout Ready</Text>
-                <Text style={{ color: theme.colors.onSurface, marginTop: 2, fontWeight: '500' }}>{payout.committeeName} — {payout.label}</Text>
-                <Text style={{ color: '#064E3B', fontWeight: 'bold', fontSize: 16 }}>Rs {payout.amount.toLocaleString()}</Text>
-              </View>
-            </Surface>
-          ))
-        )}
-
-        {/* Active Collections */}
-        <Title style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>📊 Active Collections</Title>
-        {activeCollections.length === 0 ? (
-          <Surface style={[styles.surfaceCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
-            <Text style={{ color: isDark ? '#aaa' : '#666' }}>No active collections. Create a committee!</Text>
-          </Surface>
-        ) : (
-          activeCollections.map((col, idx) => (
-            <Surface key={idx} style={[styles.surfaceCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.colors.onSurface, fontWeight: 'bold', fontSize: 15 }}>{col.committeeName}</Text>
-                  <Text style={{ color: isDark ? '#aaa' : '#666', fontSize: 13 }}>{col.label}</Text>
-                </View>
-                <Text style={{ color: theme.colors.primary, fontWeight: 'bold' }}>{col.paid}/{col.total}</Text>
-              </View>
-              <ProgressBar progress={col.progress} color={col.progress >= 1 ? '#4caf50' : theme.colors.primary} style={{ borderRadius: 4, height: 6 }} />
-            </Surface>
-          ))
-        )}
-
       </Animated.ScrollView>
     </View>
   );
@@ -244,24 +345,62 @@ export default function DashboardScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { padding: 24, paddingTop: 60, paddingBottom: 8 },
-  headerTitle: { fontSize: 30, fontWeight: 'bold' },
-  content: { padding: 16, paddingBottom: 40 },
-  statsGrid: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  statCard: { 
-    flex: 1, padding: 16, borderRadius: 16, alignItems: 'center',
-    elevation: 4, shadowColor: '#6200EE', shadowOpacity: 0.3, shadowRadius: 8, shadowOffset: { width: 0, height: 4 },
+  scrollContent: { paddingBottom: 10 },
+  heroHeader: { padding: 24, paddingTop: 55, paddingBottom: 25, borderBottomLeftRadius: 40, borderBottomRightRadius: 40 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 },
+  arabicHeading: {
+    color: '#D4AF37',
+    fontSize: 12,
+    fontWeight: 'bold',
+    fontFamily: 'serif',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
   },
-  statEmoji: { fontSize: 20, marginBottom: 4 },
-  statNumber: { color: '#fff', fontSize: 28, fontWeight: 'bold' },
-  statLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 12, marginTop: 2 },
-  financialCard: { borderRadius: 16, padding: 16, marginBottom: 20 },
-  finTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 12 },
-  finRow: { flexDirection: 'row', alignItems: 'center' },
-  finItem: { flex: 1, alignItems: 'center' },
-  finValue: { fontWeight: 'bold', fontSize: 14, marginTop: 4 },
-  finDivider: { width: 1, height: 36 },
-  sectionTitle: { marginBottom: 12, fontWeight: 'bold', fontSize: 18 },
-  surfaceCard: { padding: 16, borderRadius: 16, marginBottom: 12 },
-  actionCard: { padding: 16, borderRadius: 16, marginBottom: 12, flexDirection: 'row', alignItems: 'center' },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: 'bold',
+    fontFamily: 'serif',
+    letterSpacing: 0.5,
+    lineHeight: 32,
+  },
+  headerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
+  headerActions: { flexDirection: 'row' },
+  mainBalanceBox: { alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', padding: 24, borderRadius: 32, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  balanceLabel: { color: 'rgba(255,255,255,0.5)', fontSize: 10, fontWeight: 'bold', letterSpacing: 1.5 },
+  balanceValue: { color: '#fff', fontSize: 36, fontWeight: 'bold', marginVertical: 12, fontFamily: 'serif' },
+  balanceStats: { flexDirection: 'row', width: '100%', justifyContent: 'space-around', marginTop: 10, paddingTop: 15, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.15)' },
+  balItem: { alignItems: 'center' },
+  balLabel: { color: 'rgba(255,255,255,0.4)', fontSize: 9, fontWeight: 'bold' },
+  balValue: { color: '#D4AF37', fontSize: 15, fontWeight: 'bold', marginTop: 4 },
+  balDivider: { width: 1, height: 25, backgroundColor: 'rgba(255,255,255,0.1)' },
+  content: { padding: 20, marginTop: -40 },
+  summaryPanel: { borderRadius: 32, padding: 20 },
+  metricRow: { flexDirection: 'row', alignItems: 'center' },
+  metricItem: { flex: 1, alignItems: 'center' },
+  metricNumber: { fontSize: 24, fontWeight: 'bold', marginTop: 6 },
+  metricSub: { fontSize: 10, color: '#888', marginTop: 2, fontWeight: 'bold' },
+  vDivider: { width: 1, height: 40, backgroundColor: 'rgba(0,0,0,0.05)' },
+  section: { marginTop: 35 },
+  sectionHeader: { fontSize: 20, fontWeight: 'bold', fontFamily: 'serif', marginBottom: 16, marginLeft: 4 },
+  toolCard: { borderRadius: 32, padding: 10 },
+  toolRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+  toolIconBox: { width: 48, height: 48, borderRadius: 16, backgroundColor: '#F0FDF4', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  toolTitle: { fontSize: 16, fontWeight: 'bold' },
+  toolHint: { fontSize: 12, color: '#888', marginTop: 2 },
+  hDivider: { height: 1, marginHorizontal: 20 },
+  ayahRow: { marginTop: 15, marginBottom: 10, alignItems: 'center' },
+  ayahText: { fontSize: 32, color: '#D4AF37', fontFamily: 'serif', lineHeight: 48, textAlign: 'center', fontWeight: 'bold' },
+  ayahSub: { fontSize: 9, color: 'rgba(212, 175, 55, 0.4)', letterSpacing: 3, marginTop: 8, fontWeight: 'bold' },
+  copyrightRow: { alignItems: 'center', marginBottom: 5, opacity: 0.3 },
+  copyrightText: { fontSize: 9, color: '#D4AF37', letterSpacing: 2, fontWeight: 'bold' },
+  copyrightSub: { fontSize: 7, color: '#D4AF37', letterSpacing: 1, marginTop: 4 },
 });

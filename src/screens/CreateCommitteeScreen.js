@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, useColorScheme, LayoutAnimation } from 'react-native';
-import { TextInput, Button, useTheme, Surface, Title, List, Checkbox, Text, SegmentedButtons } from 'react-native-paper';
+import { TextInput, Button, useTheme, Surface, Title, List, Checkbox, Text, SegmentedButtons, IconButton } from 'react-native-paper';
 import { useStore } from '../store/useStore';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 
 export default function CreateCommitteeScreen({ route, navigation }) {
@@ -25,8 +26,7 @@ export default function CreateCommitteeScreen({ route, navigation }) {
   const addCommittee = useStore((state) => state.addCommittee);
   const updateCommittee = useStore((state) => state.updateCommittee);
   const theme = useTheme();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === 'dark';
+  const isDark = theme.dark;
 
   const toggleMember = (id) => {
     if (selectedMembers.includes(id)) {
@@ -96,11 +96,20 @@ export default function CreateCommitteeScreen({ route, navigation }) {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <View style={styles.header}>
-        <Title style={[styles.headerTitle, { color: theme.colors.primary, fontFamily: 'serif' }]}>Create New Committee</Title>
-        <Text style={{ color: isDark ? '#aaa' : '#666' }}>Set up your committee rules and members.</Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <LinearGradient
+        colors={['#064E3B', '#022C22']}
+        style={styles.header}
+        start={{x:0, y:0}} end={{x:1, y:1}}
+      >
+        <IconButton icon="arrow-left" iconColor="#D4AF37" onPress={() => navigation.goBack()} style={{ marginLeft: -12, marginBottom: 8 }} />
+        <Text style={styles.arabicHeading}>{editCommitteeId ? 'تعديل الجمعية' : 'إنشاء مجموعة جديدة'}</Text>
+        <Title style={styles.headerTitle}>{editCommitteeId ? 'Edit Committee' : 'Create Committee'}</Title>
+        <Text style={styles.headerSubtitle}>Set up your committee rules and members</Text>
+      </LinearGradient>
+      
+      <ScrollView contentContainerStyle={{ paddingBottom: 60 }}>
+        <View style={{ height: 20 }} />
 
       <Surface style={[styles.sectionCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
         <View style={styles.sectionHeader}>
@@ -232,10 +241,14 @@ export default function CreateCommitteeScreen({ route, navigation }) {
             <Title style={[styles.sectionTitle, { color: '#B8860B' }]}>🔄 Migration / Onboarding</Title>
             <Checkbox
               status={isOnboarding ? 'checked' : 'unchecked'}
-              onPress={() => setIsOnboarding(!isOnboarding)}
+              onPress={() => {
+                const next = !isOnboarding;
+                setIsOnboarding(next);
+                if (next) setStartCycle('2'); // Smart default for existing committees
+              }}
             />
           </View>
-          <Text style={styles.subLabel}>Import an existing committee that is already in progress.</Text>
+          <Text style={styles.subLabel}>Import an existing committee that is already in progress. (Default starts at Month 2)</Text>
 
           {isOnboarding && (
             <View style={{ marginTop: 12 }}>
@@ -259,6 +272,7 @@ export default function CreateCommitteeScreen({ route, navigation }) {
                   <List.Item
                     key={`paid-${mId}`}
                     title={m?.name}
+                    titleStyle={{ color: theme.colors.onSurface }}
                     right={() => (
                       <Checkbox
                         status={isPaid ? 'checked' : 'unchecked'}
@@ -293,14 +307,39 @@ export default function CreateCommitteeScreen({ route, navigation }) {
         {existingCommittee ? 'Update Committee' : 'Confirm & Create Committee'}
       </Button>
       <View style={{ height: 60 }} />
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { padding: 24, paddingBottom: 16 },
-  headerTitle: { fontSize: 26, marginBottom: 4 },
+  header: { padding: 24, paddingTop: 55, paddingBottom: 30, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
+  arabicHeading: {
+    color: '#D4AF37',
+    fontSize: 12,
+    fontWeight: 'bold',
+    fontFamily: 'serif',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  headerTitle: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    fontWeight: 'bold',
+    fontFamily: 'serif',
+    letterSpacing: 0.5,
+    lineHeight: 32,
+  },
+  headerSubtitle: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 10,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginTop: 4,
+    textTransform: 'uppercase',
+  },
   sectionCard: { margin: 16, marginTop: 0, padding: 20, borderRadius: 24 },
   sectionHeader: { marginBottom: 16 },
   sectionTitle: { fontSize: 18, fontWeight: 'bold' },

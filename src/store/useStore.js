@@ -223,6 +223,22 @@ export const useStore = create((set, get) => ({
       })
     }));
   },
+
+  importState: (data) => {
+    if (!data || !data.committees || !data.members) return;
+    
+    const processedCommittees = data.committees.map(c => ({
+      ...c,
+      schedule: generateSchedule(c.start_date || c.startDate, c.cycles),
+      totalAmount: parseFloat(c.total_amount || c.totalAmount),
+      contributionAmount: parseFloat(c.contribution_amount || c.contributionAmount),
+      weeklyContribution: parseFloat(c.weekly_contribution || c.weeklyContribution || 0),
+      payoutsPerCycle: c.payouts_per_cycle || c.payoutsPerCycle || 1,
+      paymentsPerCycle: c.payments_per_cycle || c.paymentsPerCycle || 1,
+    }));
+
+    set({ committees: processedCommittees, members: data.members });
+  },
 }));
 
 // Helper to generate schedule (kept consistent with original logic)
