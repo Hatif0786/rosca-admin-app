@@ -91,7 +91,7 @@ export default function DashboardScreen({ navigation }) {
           amount: c.weeklyContribution || c.contributionAmount,
           memberName: m ? m.name : 'Unknown',
           committeeName: c.name,
-          date: c.start_date,
+          date: con.updated_at || con.updatedAt || c.start_date || c.startDate,
           label: c.frequency === 'Weekly' ? `W${con.paymentNumber} • Cycle ${con.cycleNumber}` : `Cycle ${con.cycleNumber}`
         });
       }
@@ -140,13 +140,13 @@ export default function DashboardScreen({ navigation }) {
         return;
       }
 
-      const fileUri = `${FileSystem.documentDirectory}Wasla_Backup.json`;
+      const fileUri = `${FileSystem.documentDirectory}Rizqly_Backup.json`;
       const backupData = JSON.stringify({ committees, members }, null, 2);
       await FileSystem.writeAsStringAsync(fileUri, backupData);
       
       await Sharing.shareAsync(fileUri, {
         mimeType: 'application/json',
-        dialogTitle: 'Wasla Backup Data',
+        dialogTitle: 'Rizqly Backup Data',
         UTI: 'public.json'
       });
     } catch (e) { 
@@ -334,7 +334,7 @@ export default function DashboardScreen({ navigation }) {
           </View>
 
           <View style={styles.copyrightRow}>
-            <Text style={styles.copyrightText}>© 2026 WASLA • DEVELOPED BY HATIF</Text>
+            <Text style={styles.copyrightText}>© 2026 RIZQLY • DEVELOPED BY HATIF</Text>
             <Text style={styles.copyrightSub}>ALL RIGHTS RESERVED • VERSION 1.0.0</Text>
           </View>
         </View>

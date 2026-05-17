@@ -30,7 +30,8 @@ export const useStore = create((set, get) => ({
         memberId: con.member_id,
         cycleNumber: con.cycle_number,
         paymentNumber: con.payment_number,
-        status: con.status
+        status: con.status,
+        updated_at: con.updated_at || con.created_at
       })),
       payouts: (payoutsRes.data || []).filter(p => p.committee_id === c.id).map(p => ({
         memberId: p.member_id,
@@ -180,12 +181,12 @@ export const useStore = create((set, get) => ({
           if (existing) {
             updatedContributions = c.contributions.map(con => 
               (con.memberId === memberId && con.cycleNumber === cycleNumber && con.paymentNumber === paymentNumber)
-                ? { ...con, status: 'paid' }
+                ? { ...con, status: 'paid', updated_at: new Date().toISOString() }
                 : con
             );
           } else {
             updatedContributions = [...(c.contributions || []), {
-              memberId, cycleNumber, paymentNumber, status: 'paid'
+              memberId, cycleNumber, paymentNumber, status: 'paid', updated_at: new Date().toISOString()
             }];
           }
           return { ...c, contributions: updatedContributions };

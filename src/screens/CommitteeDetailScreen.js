@@ -287,7 +287,7 @@ export default function CommitteeDetailScreen({ route, navigation }) {
                   "Assalam alaikum everyone!\n\n" +
                   "Today's payout from *\"" + committee.name + "\"* has been disbursed to:\n\n" +
                   winnerData.map(m => "• *Rs " + committee.totalAmount.toLocaleString() + "* → *" + (m?.name || '') + "*").join('\n') +
-                  "\n\nJazakAllah khair for your timely contributions!\n_Sent via وصلة_";
+                  "\n\nJazakAllah khair for your timely contributions!\n_Sent via رزقلي_";
       
       setTimeout(() => {
         sendViaWhatsApp(msg, winnerData.length === 1 ? winnerData[0]?.phone : null);

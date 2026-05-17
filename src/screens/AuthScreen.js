@@ -26,7 +26,7 @@ export default function AuthScreen() {
           }
         });
         if (error) throw error;
-        alert('Welcome to Wasla! Please check your email to confirm (if enabled).');
+        alert('Welcome to Rizqly! Please check your email to confirm (if enabled).');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -44,7 +44,7 @@ export default function AuthScreen() {
       
       {/* Decorative Geometric Background Pattern (Abstract) */}
       <View style={styles.patternOverlay}>
-        <Text style={styles.patternText}>✨ وصلة ✨</Text>
+        <Text style={styles.patternText}>✨ رزقلي ✨</Text>
       </View>
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
@@ -56,7 +56,7 @@ export default function AuthScreen() {
               style={styles.logo}
               resizeMode="contain"
             />
-            <Title style={styles.brandName}>وصلة</Title>
+            <Title style={styles.brandName}>رزقلي</Title>
             <Text style={styles.tagline}>Islamic Savings Management</Text>
           </View>
 
@@ -119,7 +119,7 @@ export default function AuthScreen() {
               style={styles.switchButton}
               textColor="#D4AF37"
             >
-              {isSignUp ? 'ALREADY REGISTERED? LOGIN' : "NEW TO WASLA? SIGN UP"}
+              {isSignUp ? 'ALREADY REGISTERED? LOGIN' : "NEW TO RIZQLY? SIGN UP"}
             </Button>
           </Surface>
 

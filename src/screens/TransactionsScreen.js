@@ -101,7 +101,7 @@ export default function TransactionsScreen() {
     <html>
     <head>
       <meta charset="utf-8">
-      <title>WASLA Statement</title>
+      <title>RIZQLY Statement</title>
       <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1f2937; padding: 25px; line-height: 1.5; background-color: #fff; }
         .receipt-card { max-width: 800px; margin: auto; padding: 15px; }
@@ -130,7 +130,7 @@ export default function TransactionsScreen() {
     <body>
       <div class="receipt-card">
         <div class="header">
-          <h1>WASLA FINANCIAL PLATFORM</h1>
+          <h1>RIZQLY FINANCIAL PLATFORM</h1>
           <p>Official Global Ledger Account Statement</p>
           <div class="badge">${filterLabel.toUpperCase()}</div>
           <p style="margin-top: 15px; font-size: 11px; opacity: 0.7;">RUN DATE: ${now.toLocaleString()}</p>
@@ -185,7 +185,7 @@ export default function TransactionsScreen() {
         </table>
         
         <div class="footer">
-          © 2026 WASLA • <span class="dev-tag">DEVELOPED BY HATIF</span> • ALL RIGHTS RESERVED
+          © 2026 RIZQLY • <span class="dev-tag">DEVELOPED BY HATIF</span> • ALL RIGHTS RESERVED
         </div>
       </div>
     </body>
@@ -198,7 +198,7 @@ export default function TransactionsScreen() {
       
       // 2. Share the native PDF document directly!
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Export Wasla PDF Statement' });
+        await Sharing.shareAsync(uri, { mimeType: 'application/pdf', dialogTitle: 'Export Rizqly PDF Statement' });
       }
     } catch (e) {
       console.log("Error generating ledger statement:", e);

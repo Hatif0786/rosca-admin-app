@@ -71,7 +71,7 @@ function MemberStack({ theme }) {
   );
 }
 
-const WaslaLightTheme = {
+const RizqlyLightTheme = {
   ...MD3LightTheme,
   colors: {
     ...MD3LightTheme.colors,
@@ -86,7 +86,7 @@ const WaslaLightTheme = {
   },
 };
 
-const WaslaDarkTheme = {
+const RizqlyDarkTheme = {
   ...MD3DarkTheme,
   colors: {
     ...MD3DarkTheme.colors,
@@ -157,7 +157,7 @@ function SplashScreen() {
       </Animated.View>
       <Animated.View style={{ opacity: textOpacity, alignItems: 'center', marginTop: 30 }}>
         <Text style={styles.splashArabic}>أهلاً وسهلاً</Text>
-        <Text style={styles.splashTitle}>WASLA</Text>
+        <Text style={styles.splashTitle}>RIZQLY</Text>
         <Text style={styles.splashSubtitle}>EXECUTIVE PLATFORM</Text>
       </Animated.View>
       <Animated.View style={{ position: 'absolute', bottom: 50, opacity: textOpacity }}>
@@ -300,7 +300,7 @@ export default function App() {
   }, []);
 
   const isDark = themePreference === 'system' ? systemColorScheme === 'dark' : themePreference === 'dark';
-  const theme = isDark ? WaslaDarkTheme : WaslaLightTheme;
+  const theme = isDark ? RizqlyDarkTheme : RizqlyLightTheme;
   const navTheme = isDark ? NavDarkThemeCustom : NavLightTheme;
   const themeIcon = themePreference === 'light' ? 'weather-sunny' : themePreference === 'dark' ? 'weather-night' : 'brightness-auto';
   const toggleTheme = () => {
