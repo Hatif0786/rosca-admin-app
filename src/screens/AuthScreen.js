@@ -3,6 +3,7 @@ import { View, StyleSheet, KeyboardAvoidingView, Platform, ScrollView, Image, Di
 import { TextInput, Button, Text, Surface, Title, useTheme } from 'react-native-paper';
 import { supabase } from '../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
+import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 
 const { width } = Dimensions.get('window');
 
@@ -51,12 +52,9 @@ export default function AuthScreen() {
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
           
           <View style={styles.logoContainer}>
-            <Image 
-              source={require('../../assets/icon.png')} 
-              style={styles.logo}
-              resizeMode="contain"
-            />
-            <Title style={styles.brandName}>رزقلي</Title>
+            <Icon name="rhombus-split" size={100} color="#D4AF37" style={{ marginBottom: 10 }} />
+            <Text style={styles.welcomeArabic}>أهلاً وسهلاً</Text>
+            <Title style={styles.brandName}>RIZQLY</Title>
             <Text style={styles.tagline}>Islamic Savings Management</Text>
           </View>
 
@@ -140,10 +138,10 @@ const styles = StyleSheet.create({
     opacity: 0.05
   },
   patternText: { fontSize: 80, fontWeight: 'bold', color: '#fff' },
-  logoContainer: { alignItems: 'center', marginBottom: 40 },
-  logo: { width: 120, height: 120, marginBottom: 16 },
-  brandName: { color: '#D4AF37', fontSize: 56, fontWeight: 'bold', fontFamily: 'serif' },
-  tagline: { color: 'rgba(255,255,255,0.6)', fontSize: 13, letterSpacing: 1, fontFamily: 'serif' },
+  logoContainer: { alignItems: 'center', marginBottom: 30 },
+  brandName: { color: '#FFFFFF', fontSize: 32, fontWeight: 'bold', letterSpacing: 8, fontFamily: 'serif', marginTop: 10, textAlign: 'center' },
+  tagline: { color: 'rgba(212, 175, 55, 0.6)', fontSize: 11, letterSpacing: 3, fontFamily: 'serif', marginTop: 8, fontWeight: 'bold', textTransform: 'uppercase', textAlign: 'center' },
+  welcomeArabic: { color: '#D4AF37', fontSize: 36, fontFamily: 'serif', fontWeight: 'bold', textAlign: 'center', lineHeight: 46 },
   glassCard: { 
     padding: 24, 
     borderRadius: 30, 

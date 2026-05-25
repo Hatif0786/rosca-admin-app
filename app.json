@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Rizqly",
-    "slug": "rosca-admin-app",
+    "slug": "rizqly",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -31,8 +31,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "b3bfe2ff-e888-4848-bbad-ec19aa5f0539"
+        "projectId": "8563e549-4e18-4170-b0e2-b7aa7b906011"
       }
-    }
+    },
+    "owner": "deskworx_studio"
   }
 }
