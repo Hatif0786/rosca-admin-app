@@ -4,9 +4,12 @@ import { TextInput, Button, useTheme, Surface, Title, Text, IconButton } from 'r
 import { useStore } from '../store/useStore';
 import { LinearGradient } from 'expo-linear-gradient';
 
+import { sendWelcomeWhatsApp } from '../lib/whatsapp';
+
 export default function AddMemberScreen({ navigation }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [sendWelcome, setSendWelcome] = useState(true);
   const [loading, setLoading] = useState(false);
   const addMember = useStore((state) => state.addMember);
   const theme = useTheme();
@@ -21,6 +24,9 @@ export default function AddMemberScreen({ navigation }) {
     setLoading(true);
     try {
       await addMember(name, phone);
+      if (phone && sendWelcome) {
+        sendWelcomeWhatsApp(name, phone).catch(err => console.warn("WhatsApp welcome fail:", err));
+      }
       navigation.goBack();
     } catch (e) {
       alert("Error adding member: " + e.message);

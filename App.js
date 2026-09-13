@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Provider as PaperProvider, MD3DarkTheme, MD3LightTheme, ActivityIndicator, Text } from 'react-native-paper';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import * as Notifications from 'expo-notifications';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { supabase } from './src/lib/supabase';
 import { useStore } from './src/store/useStore';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -161,7 +162,7 @@ function SplashScreen() {
         <Text style={styles.splashSubtitle}>EXECUTIVE PLATFORM</Text>
       </Animated.View>
       <Animated.View style={{ position: 'absolute', bottom: 50, opacity: textOpacity }}>
-        <Text style={styles.developerCredit}>Developed by Hatif</Text>
+        <Text style={styles.developerCredit}>Developed by Hatif with &#10084;</Text>
       </Animated.View>
     </View>
   );
@@ -207,6 +208,11 @@ function AppNavigator({ session, theme, isDark }) {
 }
 
 async function registerForPushNotificationsAsync() {
+  const isExpoGo = Constants.appOwnership === 'expo' || Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+  if (isExpoGo) {
+    console.log('Skipping push notification registration — not supported in Expo Go');
+    return false;
+  }
   let status = 'granted';
   if (Platform.OS !== 'web') {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();

@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "Rizqly",
+    "jsEngine": "hermes",
     "slug": "rizqly",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -34,6 +35,9 @@
         "projectId": "8563e549-4e18-4170-b0e2-b7aa7b906011"
       }
     },
-    "owner": "deskworx_studio"
+    "owner": "deskworx_studio",
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

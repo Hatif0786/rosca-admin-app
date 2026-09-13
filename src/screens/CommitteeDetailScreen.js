@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Share, LayoutAnimation, UIManager, Platform, useColorScheme, Alert, Animated, Linking, TouchableOpacity, Dimensions, KeyboardAvoidingView } from 'react-native';
 import { Title, Paragraph, List, Button, Text, Surface, useTheme, Avatar, ProgressBar, IconButton, Snackbar, Portal, Dialog, TextInput } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -7,6 +7,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Notifications from 'expo-notifications';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
 import { format, addDays } from 'date-fns';
+import { 
+  sendPaymentReceiptWhatsApp, 
+  sendPayoutDisbursementWhatsApp, 
+  sendContributionReminderWhatsApp 
+} from '../lib/whatsapp';
 
 const { width, height } = Dimensions.get('window');
 
@@ -167,7 +172,12 @@ export default function CommitteeDetailScreen({ route, navigation }) {
   const isWeekly = committee?.frequency === 'Weekly';
   const paymentsPerCycle = committee?.paymentsPerCycle || 1;
   const payoutsPerCycle = isWeekly ? (committee?.payoutsPerCycle || 2) : 1;
-  const committeeMembers = members.filter(m => committee?.members?.includes(m.id));
+    const committeeMembers = members.filter(m => committee?.members?.includes(m.id));
+  // Count occurrences of each member ID to support multiple contributions
+  const memberCounts = {};
+  committee?.members?.forEach(id => {
+    memberCounts[id] = (memberCounts[id] || 0) + 1;
+  });
   const currentSchedule = (committee?.schedule || []).find(s => s.cycleNumber === currentCycle);
   const cycleLabel = currentSchedule?.label || `Month ${currentCycle}`;
 
@@ -175,20 +185,67 @@ export default function CommitteeDetailScreen({ route, navigation }) {
     c => c.memberId === memberId && c.cycleNumber === currentCycle && c.paymentNumber === paymentNum
   )?.status === 'paid';
 
+  // Helper to determine if a member has fully paid all required contributions for the current cycle
+  const isMemberFullyPaid = (memberId) => {
+    if (isWeekly) {
+      // Weekly: payment_number is the WEEK (1..paymentsPerCycle). Every week must be paid.
+      for (let w = 1; w <= paymentsPerCycle; w++) {
+        if (!getPaymentStatus(memberId, w)) return false;
+      }
+      return true;
+    }
+    const memberContribs = (committee?.contributions || []).filter(
+      c => c.memberId === memberId && c.cycleNumber === currentCycle
+    );
+    if (memberContribs.length === 0) return false;
+    // All contributions (shares) for this member in the cycle must have status 'paid'
+    return memberContribs.every(c => c.status === 'paid');
+  };
+
   const handlePayment = async (memberId, paymentNum = 1) => {
     try {
       await markContributionPaid(committeeId, memberId, currentCycle, paymentNum);
       const m = members.find(m => m.id === memberId);
       showSnack(`✓ Payment received from ${m?.name}`);
+      if (m?.phone) {
+        // Weekly instalments are week-scoped, so one entry covers all of that member's shares.
+        const shares = memberCounts[memberId] || 1;
+        const receiptAmount = isWeekly
+          ? committee.weeklyContribution * shares
+          : committee.contributionAmount;
+        sendPaymentReceiptWhatsApp(
+          m.name,
+          m.phone,
+          committee.name,
+          currentCycle,
+          receiptAmount
+        ).catch(err => console.log('WhatsApp receipt error:', err));
+      }
     } catch (e) { alert("Sync Error: " + e.message); }
   };
 
-  const markAllPaid = async (paymentNum = 1) => {
+  const markAllPaid = async () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     showSnack(`⏳ Updating all payments...`);
     try {
       for (const m of committeeMembers) {
-        if (!getPaymentStatus(m.id, paymentNum)) await markContributionPaid(committeeId, m.id, currentCycle, paymentNum);
+        if (isWeekly) {
+          // Weekly: mark the currently selected week for every member.
+          if (!getPaymentStatus(m.id, currentWeek)) {
+            await markContributionPaid(committeeId, m.id, currentCycle, currentWeek);
+          }
+        } else {
+          // Monthly: mark every outstanding share for this member (supports multi-share).
+          const contribs = (committee.contributions || []).filter(
+            c => c.memberId === m.id && c.cycleNumber === currentCycle
+          );
+          const targets = contribs.length > 0 ? contribs : [{ paymentNumber: 1, status: 'pending' }];
+          for (const c of targets) {
+            if (c.status !== 'paid') {
+              await markContributionPaid(committeeId, m.id, currentCycle, c.paymentNumber || 1);
+            }
+          }
+        }
       }
       showSnack(`✓ All payments recorded`);
     } catch (e) { alert("Error: " + e.message); }
@@ -198,13 +255,25 @@ export default function CommitteeDetailScreen({ route, navigation }) {
   const totalCommitteePayouts = committee?.payouts?.length || 0;
   const totalMembersInCommittee = committee?.members?.length || 0;
   
-  const amountNeededForCycle = Math.min((payoutsPerCycle * committee.totalAmount), (totalMembersInCommittee - (totalCommitteePayouts - cyclePayouts.length)) * committee.totalAmount);
+  const amountNeededForCycle = isWeekly
+    // Weekly: the whole month's pool = weekly rate × every share × 4 weeks.
+    ? committee.weeklyContribution * totalMembersInCommittee * paymentsPerCycle
+    : Math.min((payoutsPerCycle * committee.totalAmount), (totalMembersInCommittee - (totalCommitteePayouts - cyclePayouts.length)) * committee.totalAmount);
   const totalPaymentsMade = (committee?.contributions || []).filter(c => c.cycleNumber === currentCycle && c.status === 'paid').length;
-  const amountCollectedThisCycle = totalPaymentsMade * (isWeekly ? committee.weeklyContribution : committee.contributionAmount);
-  const allPaymentsComplete = amountCollectedThisCycle >= amountNeededForCycle;
-  const currentPaymentNum = isWeekly ? currentWeek : 1;
-  const currentWeekPaid = committeeMembers.filter(m => getPaymentStatus(m.id, currentPaymentNum)).length;
-  const currentWeekComplete = currentWeekPaid === committeeMembers.length;
+  const amountCollectedThisCycle = isWeekly
+    // Weekly is week-scoped, so one paid week covers all of that member's shares.
+    ? (committee?.contributions || [])
+        .filter(c => c.cycleNumber === currentCycle && c.status === 'paid' && c.paymentNumber <= paymentsPerCycle)
+        .reduce((sum, c) => sum + committee.weeklyContribution * (memberCounts[c.memberId] || 1), 0)
+    : totalPaymentsMade * committee.contributionAmount;
+  // Weekly unlocks only when EVERY member has paid ALL weeks; monthly uses the collected/needed amount.
+  const allPaymentsComplete = isWeekly
+    ? (committeeMembers.length > 0 && committeeMembers.every(m => isMemberFullyPaid(m.id)))
+    : amountCollectedThisCycle >= amountNeededForCycle;
+  const currentWeekPaid = isWeekly
+    ? committeeMembers.filter(m => getPaymentStatus(m.id, currentWeek)).length
+    : committeeMembers.filter(m => isMemberFullyPaid(m.id)).length;
+  const currentWeekComplete = committeeMembers.length > 0 && currentWeekPaid === committeeMembers.length;
   const currentCyclePayoutsDone = cyclePayouts.length >= payoutsPerCycle;
   const entireCommitteeDone = totalCommitteePayouts >= totalMembersInCommittee;
 
@@ -216,55 +285,54 @@ export default function CommitteeDetailScreen({ route, navigation }) {
     setShowCelebration(true);
     setTimeout(() => setShowCelebration(false), 5000);
 
-    const paidMemberIdsInCycle = (committee.contributions || [])
-      .filter(c => c.cycleNumber === currentCycle && c.status === 'paid')
-      .map(c => String(c.memberId).trim());
+    // Only members who have fully paid all their contributions for the current cycle are eligible
+    const paidMemberIdsInCycle = committeeMembers
+      .filter(m => isMemberFullyPaid(m.id))
+      .map(m => String(m.id).trim());
 
-    const allHistoricalPayouts = (committee.payouts || []).map(p => String(p.memberId).trim());
-    
-    let winners = [];
+    // Count how many payouts each member has already received (across all cycles).
+    const payoutCounts = {};
+    (committee.payouts || []).forEach(p => {
+      const k = String(p.memberId).trim();
+      payoutCounts[k] = (payoutCounts[k] || 0) + 1;
+    });
+
+    let winnerId = null;
     if (committee.payoutMethod === 'Random') {
-      const eligibleIds = committee.members.filter(id => {
-        const sid = String(id).trim();
-        return !allHistoricalPayouts.includes(sid) && paidMemberIdsInCycle.includes(sid);
-      });
+      // Random Ballot: any member who cleared this cycle and still has an unclaimed share slot.
+      const eligibleIds = [...new Set(committee.members.map(id => String(id).trim()))]
+        .filter(k => paidMemberIdsInCycle.includes(k) && (payoutCounts[k] || 0) < (memberCounts[k] || 1));
 
-      if (eligibleIds.length === 0) { 
+      if (eligibleIds.length === 0) {
         setLoading(false);
-        setShowCelebration(false); 
-        showSnack("🚫 No eligible winners! Either all have been paid or members haven't paid this month."); 
-        return; 
+        setShowCelebration(false);
+        showSnack("🚫 No eligible winners! Either all have been paid or members haven't paid this month.");
+        return;
       }
-      
-      const remainingSlots = payoutsPerCycle - cyclePayouts.length;
-      const pool = [...eligibleIds];
-      const numToPick = Math.min(remainingSlots, pool.length);
-      for (let i = 0; i < numToPick; i++) {
-        const randomIndex = Math.floor(Math.random() * pool.length);
-        winners.push(pool.splice(randomIndex, 1)[0]);
-      }
+      winnerId = eligibleIds[Math.floor(Math.random() * eligibleIds.length)];
     } else {
-      const startIdx = (currentCycle - 1) * payoutsPerCycle;
-      const scheduledIds = committee.members.slice(startIdx, startIdx + payoutsPerCycle);
-      winners = scheduledIds.filter(id => {
-        const sid = String(id).trim();
-        return !allHistoricalPayouts.includes(sid) && !cyclePayouts.find(p => String(p.memberId).trim() === sid);
-      });
-
-      const unpaid = winners.filter(id => !paidMemberIdsInCycle.includes(String(id).trim()));
-      if (unpaid.length > 0) { 
-        setLoading(false);
-        setShowCelebration(false); 
-        showSnack(`🚫 Scheduled members must pay their contribution first!`); 
-        return; 
+      // Fixed Order: award the earliest slot in members_order whose payout hasn't been
+      // claimed yet. members_order repeats a member once per share, and we "consume" prior
+      // payouts so shares and any onboarded history are respected in strict order.
+      const consumed = { ...payoutCounts };
+      const order = (committee.members || []).map(id => String(id).trim());
+      for (const k of order) {
+        if ((consumed[k] || 0) > 0) { consumed[k] -= 1; continue; }
+        winnerId = k;
+        break;
       }
     }
 
     try {
-      for (const winnerId of winners) {
-        await recordPayout(committeeId, winnerId, committee.totalAmount, currentCycle);
+      if (!winnerId) {
+        setLoading(false);
+        setShowCelebration(false);
+        showSnack("🚫 No eligible winners!");
+        return;
       }
-      
+      // Full pot amount for the committee (this is the per-payout amount for weekly)
+      const payoutAmount = committee.totalAmount;
+      await recordPayout(committeeId, winnerId, payoutAmount, currentCycle);
       // Schedule Auto-Reminder for Admin
       try {
         const nextDate = new Date();
@@ -278,19 +346,27 @@ export default function CommitteeDetailScreen({ route, navigation }) {
             priority: Notifications.AndroidNotificationPriority.HIGH,
             channelId: 'default',
           },
-          trigger: { date: nextDate },
+          trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: nextDate,
+          },
         });
       } catch (e) { console.log("Notif error:", e); }
 
-      const winnerData = winners.map(id => members.find(m => String(m.id).trim() === String(id).trim()));
-      const msg = "🎉 *CONGRATULATIONS* 🎉\n\n" +
-                  "Assalam alaikum everyone!\n\n" +
-                  "Today's payout from *\"" + committee.name + "\"* has been disbursed to:\n\n" +
-                  winnerData.map(m => "• *Rs " + committee.totalAmount.toLocaleString() + "* → *" + (m?.name || '') + "*").join('\n') +
-                  "\n\nJazakAllah khair for your timely contributions!\n_Sent via رزقلي_";
-      
+      // Prepare winner data for the Evolution payout alert
+      const winnerData = members.filter(m => String(m.id).trim() === String(winnerId).trim());
+
       setTimeout(() => {
-        sendViaWhatsApp(msg, winnerData.length === 1 ? winnerData[0]?.phone : null);
+        // Automated payout alert to the winner — sent server-side via Evolution API.
+        if (winnerData[0]?.phone) {
+          sendPayoutDisbursementWhatsApp(
+            winnerData[0].name,
+            winnerData[0].phone,
+            committee.name,
+            currentCycle,
+            payoutAmount
+          ).catch(err => console.log('WhatsApp payout alert error:', err));
+        }
         showSnack(`💸 Payout released!`);
         setLoading(false);
       }, 1500);
@@ -321,7 +397,31 @@ export default function CommitteeDetailScreen({ route, navigation }) {
                 "Kindly send your instalments of *Rs " + Math.round(committee.contributionAmount).toLocaleString() + "* for *\"" + committee.name + "\"* by " + format(deadlineDate, 'do MMMM') + ".\n\n" +
                 "JazakAllah khair!";
     }
+    // Native WhatsApp deep link (group broadcast)
     sendViaWhatsApp(message);
+
+    // Individual Evolution API reminders to each unpaid member
+    const unpaidMembers = isWeekly
+      ? committeeMembers.filter(m => !getPaymentStatus(m.id, currentWeek))
+      : committeeMembers.filter(m => !isMemberFullyPaid(m.id));
+    unpaidMembers.forEach(m => {
+      if (m.phone) {
+        const shares = memberCounts[m.id] || 1;
+        const dueAmount = isWeekly
+          ? committee.weeklyContribution * shares
+          : (committee.contributions || []).filter(
+              c => c.memberId === m.id && c.cycleNumber === currentCycle && c.status !== 'paid'
+            ).length * committee.contributionAmount || committee.contributionAmount;
+        sendContributionReminderWhatsApp(
+          m.name,
+          m.phone,
+          committee.name,
+          currentCycle,
+          dueAmount
+        ).catch(err => console.log('WhatsApp reminder error for', m.name, ':', err));
+      }
+    });
+    showSnack(`📲 Reminders sent to ${unpaidMembers.length} members`);
   };
 
   const latestReachedCycle = Math.min(committee.cycles, Math.floor((committee.payouts?.length || 0) / payoutsPerCycle) + 1);
@@ -403,7 +503,7 @@ export default function CommitteeDetailScreen({ route, navigation }) {
           <>
             <View style={styles.sectionHead}>
               <Title style={[styles.secTitle, { color: theme.colors.onSurface }]}>{isWeekly ? `Week ${currentWeek} Register` : 'Member Ledger'}</Title>
-              {!currentWeekComplete && <Button mode="text" compact onPress={() => markAllPaid(currentPaymentNum)} textColor={theme.colors.primary}>Mark All</Button>}
+              {!currentWeekComplete && <Button mode="text" compact onPress={markAllPaid} textColor={theme.colors.primary}>Mark All</Button>}
             </View>
 
             {!currentWeekComplete && (
@@ -414,23 +514,132 @@ export default function CommitteeDetailScreen({ route, navigation }) {
               </Surface>
             )}
 
+            {/* Render member register: week-scoped for weekly, share-scoped for monthly */}
             {committeeMembers.map(member => {
-              const isPaid = getPaymentStatus(member.id, currentPaymentNum);
+              const memberId = member.id;
+              const memberInfo = members.find(m => m.id === memberId);
+              const count = memberCounts[memberId] || 1;
+
+              // Determine paid state + which payment the "Receive" button should clear.
+              let cardPaid;
+              let receivePaymentNum = null; // null => nothing pending in this view
+              const monthlyContribs = isWeekly
+                ? []
+                : (committee.contributions || []).filter(c => c.memberId === memberId && c.cycleNumber === currentCycle);
+
+              if (isWeekly) {
+                // payment_number is the WEEK; the register is scoped to the selected week.
+                cardPaid = getPaymentStatus(memberId, currentWeek);
+                if (!cardPaid) receivePaymentNum = currentWeek;
+              } else {
+                cardPaid = monthlyContribs.length > 0 && monthlyContribs.every(c => c.status === 'paid');
+                const pending = monthlyContribs.find(c => c.status !== 'paid');
+                if (pending) receivePaymentNum = pending.paymentNumber || 1;
+                else if (monthlyContribs.length === 0) receivePaymentNum = 1;
+              }
+              const allPaid = cardPaid;
+
               return (
-                <Surface key={member.id} style={[styles.memberCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
-                  <Avatar.Text size={44} label={member.name.substring(0, 1).toUpperCase()} style={{ backgroundColor: isPaid ? '#064E3B' : '#333' }} color="#D4AF37" />
-                  <View style={styles.memberMeta}>
-                    <Text style={[styles.memberName, { color: theme.colors.onSurface }]}>{member.name}</Text>
-                    <View style={styles.statusRow}>
-                      <View style={[styles.statusDot, { backgroundColor: isPaid ? '#10b981' : '#f43f5e' }]} />
-                      <Text style={[styles.statusText, { color: isPaid ? '#10b981' : '#f43f5e' }]}>{isPaid ? 'RECEIVED' : 'PENDING'}</Text>
+                <Surface
+                  key={memberId}
+                  style={[styles.mCard, {
+                    backgroundColor: theme.colors.surface,
+                    borderLeftColor: allPaid ? '#10b981' : '#D4AF37',
+                  }]}
+                  elevation={1}
+                >
+                  <View style={styles.mCardRow}>
+                    {/* Avatar with status ring */}
+                    <View style={styles.mAvatarWrap}>
+                      <Avatar.Text
+                        size={46}
+                        label={memberInfo?.name?.charAt(0).toUpperCase() || '?'}
+                        style={{ backgroundColor: allPaid ? '#064E3B' : '#1a1a2e' }}
+                        color="#D4AF37"
+                      />
+                      {allPaid && (
+                        <View style={styles.mCheckBadge}>
+                          <Icon name="check-bold" size={10} color="#fff" />
+                        </View>
+                      )}
                     </View>
+
+                    {/* Name + contribution pills */}
+                    <View style={styles.mInfo}>
+                      <View style={styles.mNameRow}>
+                        <Text style={[styles.mName, { color: theme.colors.onSurface }]} numberOfLines={1}>
+                          {memberInfo?.name || 'Unknown'}
+                        </Text>
+                        {count > 1 && (
+                          <View style={styles.mCountBadge}>
+                            <Text style={styles.mCountText}>{count}×</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={styles.mPills}>
+                        {isWeekly
+                          ? [1, 2, 3, 4].map(w => {
+                              const isPaid = getPaymentStatus(memberId, w);
+                              const isCurrent = w === currentWeek;
+                              return (
+                                <View
+                                  key={`wk-${w}`}
+                                  style={[styles.mPill, {
+                                    backgroundColor: isPaid ? '#10b98118' : '#f43f5e18',
+                                    borderColor: isCurrent ? '#D4AF37' : (isPaid ? '#10b98144' : '#f43f5e44'),
+                                    borderWidth: isCurrent ? 1.5 : 1,
+                                  }]}
+                                >
+                                  <View style={[styles.mPillDot, { backgroundColor: isPaid ? '#10b981' : '#f43f5e' }]} />
+                                  <Text style={[styles.mPillText, { color: isPaid ? '#10b981' : '#f43f5e' }]}>
+                                    {isPaid ? `W${w} ✓` : `W${w}`}
+                                  </Text>
+                                </View>
+                              );
+                            })
+                          : monthlyContribs.map((c, idx) => {
+                              const isPaid = c.status === 'paid';
+                              return (
+                                <View
+                                  key={c.id || idx}
+                                  style={[styles.mPill, {
+                                    backgroundColor: isPaid ? '#10b98118' : '#f43f5e18',
+                                    borderColor: isPaid ? '#10b98144' : '#f43f5e44',
+                                  }]}
+                                >
+                                  <View style={[styles.mPillDot, { backgroundColor: isPaid ? '#10b981' : '#f43f5e' }]} />
+                                  <Text style={[styles.mPillText, { color: isPaid ? '#10b981' : '#f43f5e' }]}>
+                                    {isPaid ? `✓` : `#${c.paymentNumber || idx + 1}`}
+                                  </Text>
+                                </View>
+                              );
+                            })}
+                      </View>
+                    </View>
+
+                    {/* Action */}
+                    {receivePaymentNum !== null ? (
+                      <Button
+                        mode="contained"
+                        compact
+                        buttonColor="#064E3B"
+                        textColor="#D4AF37"
+                        onPress={() => handlePayment(memberId, receivePaymentNum)}
+                        style={styles.mPayBtn}
+                        labelStyle={styles.mPayLabel}
+                      >
+                        Receive
+                      </Button>
+                    ) : (
+                      // Fully settled for this view. The receipt already went out automatically
+                      // over Evolution when the payment was recorded, so no manual send here —
+                      // just a settled marker.
+                      <View style={styles.mPaidChip}>
+                        <Icon name="check-decagram" size={14} color="#10b981" />
+                        <Text style={styles.mPaidChipText}>{isWeekly ? 'SETTLED' : 'PAID'}</Text>
+                      </View>
+                    )}
                   </View>
-                  {isPaid ? (
-                    <IconButton icon="whatsapp" iconColor="#10b981" onPress={() => sendViaWhatsApp(`✅ Payment of Rs ${committee.weeklyContribution || committee.contributionAmount} Received.`, member.phone)} />
-                  ) : (
-                    <Button mode="contained" compact buttonColor="#064E3B" textColor="#D4AF37" onPress={() => handlePayment(member.id, currentPaymentNum)} style={styles.payBtn}>Receive</Button>
-                  )}
                 </Surface>
               );
             })}
@@ -454,29 +663,39 @@ export default function CommitteeDetailScreen({ route, navigation }) {
         )}
 
         {/* --- Payout History Ledger --- */}
-        {(committee.payouts?.length || 0) > 0 && (
-          <View style={{ marginTop: 40 }}>
-            <View style={styles.sectionHead}>
-              <Title style={[styles.secTitle, { color: theme.colors.onSurface }]}>السجل (Payout Ledger)</Title>
-              <Icon name="book-open-variant" size={20} color="#D4AF37" />
+        {committee.payouts?.length > 0 && (
+  <View style={{ marginTop: 40 }}>
+    <View style={styles.sectionHead}>
+      <Title style={[styles.secTitle, { color: theme.colors.onSurface }]}>{`السجل (Payout Ledger)`}</Title>
+      <Icon name="book-open-variant" size={20} color="#D4AF37" />
+    </View>
+    {
+      Object.values(
+        committee.payouts.reduce((acc, p) => {
+          const member = members.find(m => m.id === p.memberId);
+          if (!acc[p.memberId]) acc[p.memberId] = { member, payouts: [] };
+          acc[p.memberId].payouts.push(p);
+          return acc;
+        }, {})
+      ).sort((a,b)=> (a.member?.name||'').localeCompare(b.member?.name||'')).map(({ member, payouts }) => {
+        const total = payouts.reduce((sum, pt) => sum + pt.amount, 0);
+        const cycles = payouts.map(pt => pt.cycleNumber).join(', ');
+        return (
+          <Surface key={member?.id} style={[styles.historyCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
+            <View style={styles.historyLeft}>
+              <Text style={styles.historyName}>{member?.name}</Text>
+              <Text style={styles.historyCycle}>Cycles: {cycles}</Text>
             </View>
-            {committee.payouts.map((p, idx) => {
-              const m = members.find(mem => mem.id === p.memberId);
-              return (
-                <Surface key={idx} style={[styles.historyCard, { backgroundColor: theme.colors.surface }]} elevation={1}>
-                  <View style={styles.historyLeft}>
-                    <Text style={styles.historyCycle}>{committee.schedule.find(s => s.cycleNumber === p.cycleNumber)?.label || `Month ${p.cycleNumber}`}</Text>
-                    <Text style={[styles.historyName, { color: theme.colors.onSurface }]}>{m?.name}</Text>
-                  </View>
-                  <View style={styles.historyRight}>
-                    <Text style={styles.historyAmount}>Rs {p.amount.toLocaleString()}</Text>
-                    <Text style={styles.historyStatus}>✓ DISBURSED</Text>
-                  </View>
-                </Surface>
-              );
-            })}
-          </View>
-        )}
+            <View style={styles.historyRight}>
+              <Text style={styles.historyAmount}>Rs {total.toLocaleString()}</Text>
+              <Text style={styles.historyStatus}>✓ DISBURSED</Text>
+            </View>
+          </Surface>
+        );
+      })
+    }
+  </View>
+)}
         {/* --- Administrative Notes Section --- */}
         <Surface style={[styles.notesCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
           <View style={styles.notesHeader}>
@@ -578,6 +797,121 @@ const styles = StyleSheet.create({
   statusDot: { width: 5, height: 5, borderRadius: 2.5, marginRight: 5 },
   statusText: { fontSize: 9, fontWeight: 'bold', letterSpacing: 0.5 },
   payBtn: { borderRadius: 12, paddingHorizontal: 12, height: 36, justifyContent: 'center' },
+
+  // --- Premium Member Card Styles ---
+  mCard: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    overflow: 'hidden',
+  },
+  mCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    paddingLeft: 12,
+  },
+  mAvatarWrap: {
+    position: 'relative',
+  },
+  mCheckBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#10b981',
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#fff',
+  },
+  mInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  mNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  mName: {
+    fontSize: 15,
+    fontWeight: '700',
+    fontFamily: 'serif',
+    flexShrink: 1,
+  },
+  mCountBadge: {
+    backgroundColor: '#D4AF37',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginLeft: 8,
+  },
+  mCountText: {
+    color: '#064E3B',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  mPills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  mPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  mPillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 4,
+  },
+  mPillText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  mPayBtn: {
+    borderRadius: 12,
+    height: 34,
+    justifyContent: 'center',
+  },
+  mPayLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  mWhatsApp: {
+    margin: 0,
+    backgroundColor: '#25D36612',
+    borderRadius: 12,
+  },
+  mPaidChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#10b98114',
+    borderWidth: 1,
+    borderColor: '#10b98133',
+  },
+  mPaidChipText: {
+    fontSize: 9,
+    fontWeight: 'bold',
+    letterSpacing: 0.8,
+    color: '#10b981',
+  },
+
+  // --- Payout, History, Notes, Celebration ---
   payoutBoard: { margin: 16, borderRadius: 28, overflow: 'hidden' },
   payoutGrad: { padding: 24, alignItems: 'center' },
   payoutHeader: { color: '#D4AF37', fontSize: 17, fontWeight: 'bold', letterSpacing: 2, marginBottom: 6, fontFamily: 'serif' },

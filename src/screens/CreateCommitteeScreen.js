@@ -16,28 +16,102 @@ export default function CreateCommitteeScreen({ route, navigation }) {
   const [payoutsPerCycle, setPayoutsPerCycle] = useState(existingCommittee ? (existingCommittee.payoutsPerCycle || 2).toString() : '2');
   const [frequency, setFrequency] = useState(existingCommittee ? existingCommittee.frequency : 'Monthly');
   const [payoutMethod, setPayoutMethod] = useState(existingCommittee ? existingCommittee.payoutMethod || 'Scheduled' : 'Scheduled');
-  const [selectedMembers, setSelectedMembers] = useState(existingCommittee ? existingCommittee.members : []);
+  const [selectedMembers, setSelectedMembers] = useState(() => {
+    if (existingCommittee && existingCommittee.members) {
+      const map = {};
+      existingCommittee.members.forEach(id => {
+        if (map[id]) map[id] += 1;
+        else map[id] = 1;
+      });
+      return Object.entries(map).map(([id, count]) => ({ id, count }));
+    }
+    return [];
+  });
+  const [payoutOrder, setPayoutOrder] = useState(() => {
+    if (existingCommittee && existingCommittee.members) {
+      return [...existingCommittee.members];
+    }
+    return [];
+  });
+  const [selectedSwapIndex, setSelectedSwapIndex] = useState(null);
   const [isOnboarding, setIsOnboarding] = useState(false);
   const [startCycle, setStartCycle] = useState('1');
-  const [alreadyPaidMemberIds, setAlreadyPaidMemberIds] = useState([]);
+  const [alreadyPaidSlotIndexes, setAlreadyPaidSlotIndexes] = useState([]);
   const [loading, setLoading] = useState(false);
-  
+
   const members = useStore((state) => state.members);
   const addCommittee = useStore((state) => state.addCommittee);
   const updateCommittee = useStore((state) => state.updateCommittee);
   const theme = useTheme();
   const isDark = theme.dark;
-
-  const toggleMember = (id) => {
-    if (selectedMembers.includes(id)) {
-      setSelectedMembers(selectedMembers.filter(mId => mId !== id));
-    } else {
-      setSelectedMembers([...selectedMembers, id]);
+  const localPaperTheme = {
+    ...theme,
+    colors: {
+      ...theme.colors,
+      primary: '#064E3B',
+      primaryContainer: isDark ? 'rgba(6, 78, 59, 0.25)' : 'rgba(6, 78, 59, 0.08)',
+      onPrimaryContainer: isDark ? '#A7F3D0' : '#064E3B',
+      secondaryContainer: isDark ? 'rgba(6, 78, 59, 0.25)' : 'rgba(6, 78, 59, 0.08)',
+      onSecondaryContainer: isDark ? '#A7F3D0' : '#064E3B',
+      outline: '#064E3B',
     }
   };
 
-  // Auto-calculated values
-  const numMembers = selectedMembers.length;
+  // Monthly committees always disburse exactly one pot per cycle; the payoutsPerCycle
+  // input only applies to Weekly. Using the raw field for Monthly made the onboarding
+  // "already paid out" list show twice as many historical slots as it should.
+  const effectivePayoutsPerCycle = frequency === 'Weekly' ? (parseInt(payoutsPerCycle) || 2) : 1;
+
+  // Auto-sync onboarding slots when cycle, frequency or order changes
+  React.useEffect(() => {
+    if (isOnboarding) {
+      const cycleVal = parseInt(startCycle) || 1;
+      const count = Math.min((cycleVal - 1) * effectivePayoutsPerCycle, payoutOrder.length);
+      const indices = [];
+      for (let i = 0; i < count; i++) {
+        indices.push(i);
+      }
+      setAlreadyPaidSlotIndexes(indices);
+    } else {
+      setAlreadyPaidSlotIndexes([]);
+    }
+  }, [payoutOrder, startCycle, effectivePayoutsPerCycle, isOnboarding]);
+
+  const toggleMember = (id) => {
+    const existing = selectedMembers.find(m => m.id === id);
+    if (existing) {
+      setSelectedMembers(selectedMembers.filter(m => m.id !== id));
+      setPayoutOrder(payoutOrder.filter(memberId => memberId !== id));
+    } else {
+      setSelectedMembers([...selectedMembers, { id, count: 1 }]);
+      setPayoutOrder([...payoutOrder, id]);
+    }
+  };
+
+  const incrementMember = (id) => {
+    setSelectedMembers(selectedMembers.map(m => m.id === id ? { ...m, count: m.count + 1 } : m));
+    setPayoutOrder([...payoutOrder, id]);
+  };
+
+  const decrementMember = (id) => {
+    const existing = selectedMembers.find(m => m.id === id);
+    if (!existing) return;
+    if (existing.count > 1) {
+      setSelectedMembers(selectedMembers.map(m => m.id === id ? { ...m, count: m.count - 1 } : m));
+      const idx = payoutOrder.lastIndexOf(id);
+      if (idx > -1) {
+        const newOrder = [...payoutOrder];
+        newOrder.splice(idx, 1);
+        setPayoutOrder(newOrder);
+      }
+    } else {
+      setSelectedMembers(selectedMembers.filter(m => m.id !== id));
+      setPayoutOrder(payoutOrder.filter(memberId => memberId !== id));
+    }
+  };
+
+  // Auto‑calculated values
+  const numMembers = selectedMembers.reduce((sum, m) => sum + m.count, 0);
   let calculatedContribution = 0;
   let calculatedPayout = 0;
   let calculatedCycles = 0;
@@ -62,11 +136,27 @@ export default function CreateCommitteeScreen({ route, navigation }) {
     
     const startDate = existingCommittee ? existingCommittee.startDate : new Date().toISOString();
     
+    const generatePayoutOrder = (selected) => {
+      const counts = selected.map(m => ({ id: m.id, remaining: m.count }));
+      const order = [];
+      while (counts.some(c => c.remaining > 0)) {
+        for (const c of counts) {
+          if (c.remaining > 0) {
+            order.push(c.id);
+            c.remaining--;
+          }
+        }
+      }
+      return order;
+    };
+
+    const finalOrder = payoutMethod === 'Scheduled' ? payoutOrder : generatePayoutOrder(selectedMembers);
+
     const committeeData = {
       name,
       frequency,
       payoutMethod,
-      members: selectedMembers,
+      members: finalOrder,
       startDate,
       totalAmount: frequency === 'Monthly' ? parseFloat(totalAmount) : (parseFloat(weeklyContribution) * numMembers * 4) / (parseInt(payoutsPerCycle) || 2),
       contributionAmount: calculatedContribution,
@@ -83,7 +173,7 @@ export default function CreateCommitteeScreen({ route, navigation }) {
       } else {
         const onboardingData = isOnboarding ? {
           startCycle: parseInt(startCycle) || 1,
-          alreadyPaidMemberIds
+          alreadyPaidMemberIds: alreadyPaidSlotIndexes.map(idx => finalOrder[idx])
         } : null;
         await addCommittee(committeeData, onboardingData);
       }
@@ -102,7 +192,7 @@ export default function CreateCommitteeScreen({ route, navigation }) {
         style={styles.header}
         start={{x:0, y:0}} end={{x:1, y:1}}
       >
-        <IconButton icon="arrow-left" iconColor="#D4AF37" onPress={() => navigation.goBack()} style={{ marginLeft: -12, marginBottom: 8 }} />
+        {/* <IconButton icon="arrow-left" iconColor="#D4AF37" onPress={() => navigation.goBack()} style={{ marginLeft: -12, marginBottom: 8 }} /> */}
         <Text style={styles.arabicHeading}>{editCommitteeId ? 'تعديل الجمعية' : 'إنشاء مجموعة جديدة'}</Text>
         <Title style={styles.headerTitle}>{editCommitteeId ? 'Edit Committee' : 'Create Committee'}</Title>
         <Text style={styles.headerSubtitle}>Set up your committee rules and members</Text>
@@ -122,7 +212,9 @@ export default function CreateCommitteeScreen({ route, navigation }) {
           onChangeText={setName}
           mode="outlined"
           style={styles.input}
-          outlineColor={theme.colors.primary}
+          outlineColor="#064E3B"
+          activeOutlineColor="#064E3B"
+          theme={localPaperTheme}
         />
         
         <Text style={styles.inputLabel}>Contribution Frequency</Text>
@@ -134,6 +226,7 @@ export default function CreateCommitteeScreen({ route, navigation }) {
             { value: 'Weekly', label: 'Weekly' },
           ]}
           style={styles.segmented}
+          theme={localPaperTheme}
         />
 
         {frequency === 'Monthly' ? (
@@ -145,6 +238,9 @@ export default function CreateCommitteeScreen({ route, navigation }) {
             keyboardType="numeric"
             style={styles.input}
             placeholder="e.g. 50000"
+            outlineColor="#064E3B"
+            activeOutlineColor="#064E3B"
+            theme={localPaperTheme}
           />
         ) : (
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -155,6 +251,9 @@ export default function CreateCommitteeScreen({ route, navigation }) {
               mode="outlined"
               keyboardType="numeric"
               style={[styles.input, { flex: 1 }]}
+              outlineColor="#064E3B"
+              activeOutlineColor="#064E3B"
+              theme={localPaperTheme}
             />
             <TextInput
               label="Payouts/Mo"
@@ -163,6 +262,9 @@ export default function CreateCommitteeScreen({ route, navigation }) {
               mode="outlined"
               keyboardType="numeric"
               style={[styles.input, { flex: 1 }]}
+              outlineColor="#064E3B"
+              activeOutlineColor="#064E3B"
+              theme={localPaperTheme}
             />
           </View>
         )}
@@ -176,6 +278,7 @@ export default function CreateCommitteeScreen({ route, navigation }) {
             { value: 'Random', label: 'Random Ballot' },
           ]}
           style={styles.segmented}
+          theme={localPaperTheme}
         />
       </Surface>
 
@@ -201,32 +304,54 @@ export default function CreateCommitteeScreen({ route, navigation }) {
 
       <Surface style={[styles.sectionCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
         <Title style={[styles.sectionTitle, { color: theme.colors.primary }]}>
-          {payoutMethod === 'Scheduled' ? `🤝 Payout Order (${numMembers})` : `👥 Select Members (${numMembers})`}
+          👥 Select Members & Contributions ({numMembers})
         </Title>
         <Text style={styles.subLabel}>
-          {payoutMethod === 'Scheduled' 
-            ? 'Tap members in the order they will receive payouts.'
-            : 'Select members to include in this committee.'}
+          Select members and set the number of shares (contributions) they have in this committee.
         </Text>
         
         {members.map((member) => {
-          const isSelected = selectedMembers.includes(member.id);
-          const pos = selectedMembers.indexOf(member.id) + 1;
+          const entry = selectedMembers.find(m => m.id === member.id);
+          const isSelected = !!entry;
+          const count = entry ? entry.count : 0;
           return (
             <Surface key={member.id} style={[styles.memberCard, { backgroundColor: isSelected ? (isDark ? '#064E3B22' : '#F0FDF4') : 'transparent' }]} elevation={0}>
               <List.Item
                 title={member.name}
-                titleStyle={{ color: theme.colors.onSurface, fontWeight: isSelected ? 'bold' : 'normal' }}
+                titleStyle={{ color: theme.colors.onSurface, fontWeight: isSelected ? 'bold' : 'normal', fontFamily: 'serif' }}
                 left={() => (
-                  <Checkbox
-                    status={isSelected ? 'checked' : 'unchecked'}
-                    onPress={() => toggleMember(member.id)}
-                  />
+                  <View style={{ justifyContent: 'center', alignSelf: 'center', marginLeft: 2, marginRight: -7 }}>
+                    <Checkbox
+                      status={isSelected ? 'checked' : 'unchecked'}
+                      onPress={() => toggleMember(member.id)}
+                      color="#064E3B"
+                      theme={localPaperTheme}
+                    />
+                  </View>
                 )}
-                right={() => isSelected && payoutMethod === 'Scheduled' && (
-                  <Surface style={styles.posBadge} elevation={1}>
-                    <Text style={styles.posText}>#{pos}</Text>
-                  </Surface>
+                right={() => (
+                  <View style={styles.memberControls}>
+                    {isSelected && count > 1 && (
+                      <Surface style={[styles.posBadge, { backgroundColor: theme.colors.primaryContainer, marginLeft: 8, marginRight: 4 }]} elevation={1}>
+                        <Text style={[styles.posText, { color: theme.colors.onPrimaryContainer }]}>{count}×</Text>
+                      </Surface>
+                    )}
+                    {isSelected && (
+                      <View style={styles.controlGroup}>
+                        <IconButton
+                          icon="minus"
+                          size={18}
+                          onPress={() => decrementMember(member.id)}
+                        />
+                        <Text style={{ marginHorizontal: 6, fontWeight: 'bold' }}>{count}</Text>
+                        <IconButton
+                          icon="plus"
+                          size={18}
+                          onPress={() => incrementMember(member.id)}
+                        />
+                      </View>
+                    )}
+                  </View>
                 )}
                 onPress={() => toggleMember(member.id)}
               />
@@ -234,6 +359,128 @@ export default function CreateCommitteeScreen({ route, navigation }) {
           );
         })}
       </Surface>
+
+      {payoutMethod === 'Scheduled' && payoutOrder.length > 0 && (
+        <Surface style={[styles.sectionCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
+          <Title style={[styles.sectionTitle, { color: theme.colors.primary }]}>
+            🤝 Payout Order Sequence ({payoutOrder.length})
+          </Title>
+          <Text style={styles.subLabel}>
+            Tap a slot to select it, then tap another slot to swap their payout order, or use the up/down arrows.
+          </Text>
+
+          {payoutOrder.map((memberId, index) => {
+            const member = members.find(m => m.id === memberId);
+            if (!member) return null;
+            
+            const isSwapSelected = selectedSwapIndex === index;
+
+            // Compute contribution label (e.g. Share 1 of 2)
+            const count = selectedMembers.find(m => m.id === memberId)?.count || 1;
+            let shareLabel = '';
+            if (count > 1) {
+              let occurrence = 0;
+              for (let k = 0; k <= index; k++) {
+                if (payoutOrder[k] === memberId) occurrence++;
+              }
+              shareLabel = ` (Share ${occurrence}/${count})`;
+            }
+
+            return (
+              <Surface
+                key={`slot-${index}-${memberId}`}
+                style={[
+                  styles.slotCard,
+                  {
+                    borderColor: isSwapSelected ? theme.colors.primary : theme.colors.outlineVariant,
+                    borderWidth: 1,
+                    backgroundColor: isSwapSelected 
+                      ? theme.colors.primaryContainer 
+                      : theme.colors.elevation.level1,
+                  }
+                ]}
+                elevation={isSwapSelected ? 2 : 1}
+              >
+                <List.Item
+                  title={member.name}
+                  titleStyle={{ 
+                    fontSize: 15, 
+                    fontWeight: 'bold',
+                    color: isSwapSelected ? theme.colors.onPrimaryContainer : theme.colors.onSurface 
+                  }}
+                  description={`Payout Cycle ${index + 1}${shareLabel}`}
+                  descriptionStyle={{
+                    fontSize: 12,
+                    color: isSwapSelected ? theme.colors.onPrimaryContainer : theme.colors.onSurfaceVariant,
+                    opacity: 0.8
+                  }}
+                  left={() => (
+                    <View style={[
+                      styles.slotBadge, 
+                      { 
+                        backgroundColor: isSwapSelected ? theme.colors.primary : theme.colors.secondaryContainer 
+                      }
+                    ]}>
+                      <Text style={[
+                        styles.slotBadgeText, 
+                        { 
+                          color: isSwapSelected ? '#FFF' : theme.colors.onSecondaryContainer 
+                        }
+                      ]}>
+                        {index + 1}
+                      </Text>
+                    </View>
+                  )}
+                  right={() => (
+                    <View style={styles.slotControls}>
+                      <IconButton
+                        icon="chevron-up"
+                        size={20}
+                        iconColor={isSwapSelected ? theme.colors.onPrimaryContainer : theme.colors.primary}
+                        disabled={index === 0}
+                        onPress={() => {
+                          const newOrder = [...payoutOrder];
+                          const temp = newOrder[index];
+                          newOrder[index] = newOrder[index - 1];
+                          newOrder[index - 1] = temp;
+                          setPayoutOrder(newOrder);
+                        }}
+                      />
+                      <IconButton
+                        icon="chevron-down"
+                        size={20}
+                        iconColor={isSwapSelected ? theme.colors.onPrimaryContainer : theme.colors.primary}
+                        disabled={index === payoutOrder.length - 1}
+                        onPress={() => {
+                          const newOrder = [...payoutOrder];
+                          const temp = newOrder[index];
+                          newOrder[index] = newOrder[index + 1];
+                          newOrder[index + 1] = temp;
+                          setPayoutOrder(newOrder);
+                        }}
+                      />
+                    </View>
+                  )}
+                  onPress={() => {
+                    if (selectedSwapIndex === null) {
+                      setSelectedSwapIndex(index);
+                    } else if (selectedSwapIndex === index) {
+                      setSelectedSwapIndex(null);
+                    } else {
+                      const newOrder = [...payoutOrder];
+                      const temp = newOrder[selectedSwapIndex];
+                      newOrder[selectedSwapIndex] = newOrder[index];
+                      newOrder[index] = temp;
+                      setPayoutOrder(newOrder);
+                      setSelectedSwapIndex(null);
+                    }
+                  }}
+                />
+              </Surface>
+            );
+          })}
+        </Surface>
+      )}
 
       {!existingCommittee && (
         <Surface style={[styles.sectionCard, { backgroundColor: theme.colors.surface }]} elevation={2}>
@@ -246,6 +493,8 @@ export default function CreateCommitteeScreen({ route, navigation }) {
                 setIsOnboarding(next);
                 if (next) setStartCycle('2'); // Smart default for existing committees
               }}
+              color="#064E3B"
+              theme={localPaperTheme}
             />
           </View>
           <Text style={styles.subLabel}>Import an existing committee that is already in progress. (Default starts at Month 2)</Text>
@@ -260,36 +509,66 @@ export default function CreateCommitteeScreen({ route, navigation }) {
                 keyboardType="numeric"
                 style={styles.input}
                 placeholder="e.g. 4"
+                outlineColor="#064E3B"
+                activeOutlineColor="#064E3B"
+                theme={localPaperTheme}
               />
               
               <Text style={[styles.inputLabel, { marginTop: 16 }]}>Already Paid Out?</Text>
-              <Text style={styles.subLabel}>Select members who have already taken their payout.</Text>
+              <Text style={styles.subLabel}>Select slots/shares that have already been paid out in historical cycles.</Text>
               
-              {selectedMembers.map(mId => {
-                const m = members.find(mem => mem.id === mId);
-                const isPaid = alreadyPaidMemberIds.includes(mId);
-                return (
-                  <List.Item
-                    key={`paid-${mId}`}
-                    title={m?.name}
-                    titleStyle={{ color: theme.colors.onSurface }}
-                    right={() => (
-                      <Checkbox
-                        status={isPaid ? 'checked' : 'unchecked'}
-                        onPress={() => {
-                          if (isPaid) setAlreadyPaidMemberIds(alreadyPaidMemberIds.filter(id => id !== mId));
-                          else setAlreadyPaidMemberIds([...alreadyPaidMemberIds, mId]);
-                        }}
-                      />
-                    )}
-                    onPress={() => {
-                      if (isPaid) setAlreadyPaidMemberIds(alreadyPaidMemberIds.filter(id => id !== mId));
-                      else setAlreadyPaidMemberIds([...alreadyPaidMemberIds, mId]);
-                    }}
-                    style={styles.onboardingItem}
-                  />
-                );
-              })}
+              {(() => {
+                const cycleVal = parseInt(startCycle) || 1;
+                const numPastPayouts = (cycleVal - 1) * effectivePayoutsPerCycle;
+
+                if (numPastPayouts <= 0) {
+                  return <Text style={{ fontStyle: 'italic', color: '#888', marginVertical: 8 }}>Starting at Cycle 1; no past payouts to record.</Text>;
+                }
+
+                return payoutOrder.slice(0, numPastPayouts).map((memberId, idx) => {
+                  const m = members.find(mem => mem.id === memberId);
+                  const isPaid = alreadyPaidSlotIndexes.includes(idx);
+                  
+                  // Get share label if member has multiple contributions
+                  const count = selectedMembers.find(sm => sm.id === memberId)?.count || 1;
+                  let shareLabel = '';
+                  if (count > 1) {
+                    let occurrence = 0;
+                    for (let k = 0; k <= idx; k++) {
+                      if (payoutOrder[k] === memberId) occurrence++;
+                    }
+                    shareLabel = ` (Share ${occurrence}/${count})`;
+                  }
+
+                  return (
+                    <List.Item
+                      key={`paid-slot-${idx}`}
+                      title={m?.name || 'Unknown'}
+                      titleStyle={{ color: theme.colors.onSurface, fontWeight: 'bold' }}
+                      description={`Payout Cycle ${idx + 1}${shareLabel}`}
+                      descriptionStyle={{ color: theme.colors.onSurfaceVariant, fontSize: 12 }}
+                      left={() => (
+                        <View style={{ justifyContent: 'center', alignSelf: 'center', marginLeft: -4, marginRight: 4 }}>
+                          <Checkbox
+                            status={isPaid ? 'checked' : 'unchecked'}
+                            onPress={() => {
+                              if (isPaid) setAlreadyPaidSlotIndexes(alreadyPaidSlotIndexes.filter(i => i !== idx));
+                              else setAlreadyPaidSlotIndexes([...alreadyPaidSlotIndexes, idx].sort((a,b)=>a-b));
+                            }}
+                            color="#064E3B"
+                            theme={localPaperTheme}
+                          />
+                        </View>
+                      )}
+                      onPress={() => {
+                        if (isPaid) setAlreadyPaidSlotIndexes(alreadyPaidSlotIndexes.filter(i => i !== idx));
+                        else setAlreadyPaidSlotIndexes([...alreadyPaidSlotIndexes, idx].sort((a,b)=>a-b));
+                      }}
+                      style={styles.onboardingItem}
+                    />
+                  );
+                });
+              })()}
             </View>
           )}
         </Surface>
@@ -303,6 +582,7 @@ export default function CreateCommitteeScreen({ route, navigation }) {
         style={styles.saveButton}
         contentStyle={{ paddingVertical: 12 }}
         labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
+        theme={localPaperTheme}
       >
         {existingCommittee ? 'Update Committee' : 'Confirm & Create Committee'}
       </Button>
@@ -314,7 +594,7 @@ export default function CreateCommitteeScreen({ route, navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { padding: 24, paddingTop: 55, paddingBottom: 30, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
+  header: { padding: 24, paddingTop: 35, paddingBottom: 30, borderBottomLeftRadius: 32, borderBottomRightRadius: 32 },
   arabicHeading: {
     color: '#D4AF37',
     fontSize: 12,
@@ -352,10 +632,55 @@ const styles = StyleSheet.create({
   summaryItem: { alignItems: 'center' },
   summaryLabel: { fontSize: 11, color: '#666', textTransform: 'uppercase', marginBottom: 4 },
   summaryValue: { fontSize: 16, fontWeight: 'bold', color: '#064E3B' },
-  memberCard: { borderRadius: 12, marginBottom: 4 },
-  posBadge: { backgroundColor: '#D4AF37', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-  posText: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  memberCard: {
+    borderRadius: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.05)',
+  },
+  memberControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  controlGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.03)',
+    borderRadius: 20,
+    paddingHorizontal: 1,
+  },
+  posBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  posText: { fontSize: 11, fontWeight: 'bold' },
+  slotCard: {
+    borderRadius: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    paddingLeft: 16,
+    overflow: 'hidden',
+  },
+  slotBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    alignSelf: 'center',
+  },
+  slotBadgeText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  slotControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   onboardingItem: { paddingVertical: 0 },
-  saveButton: { margin: 16, borderRadius: 16, elevation: 4 },
+  saveButton: { margin: 16, borderRadius: 16, elevation: 4, backgroundColor: '#064E3B' },
   calcTitle: { fontSize: 16, marginBottom: 8 },
 });

@@ -6,8 +6,15 @@ export const useStore = create((set, get) => ({
   committees: [],
   members: [],
   themePreference: 'system', // 'light' | 'dark' | 'system'
+  whatsappConfig: {
+    apiUrl: 'https://evolution-api-latest-8rfm.onrender.com',
+    apiKey: 'whatsappAuthenticationApiKey',
+    instanceName: 'rizqly_admin',
+    enabled: true,
+  },
   
   setThemePreference: (pref) => set({ themePreference: pref }),
+  setWhatsAppConfig: (config) => set((state) => ({ whatsappConfig: { ...state.whatsappConfig, ...config } })),
   loading: false,
 
   // --- Fetch everything from Supabase ---
@@ -104,21 +111,24 @@ export const useStore = create((set, get) => ({
     // Generate Contributions
     const contributions = [];
     for (let cycle = 1; cycle <= cycles; cycle++) {
-      for (let paymentNum = 1; paymentNum <= paymentsPerCycle; paymentNum++) {
-        for (const memberId of memberIds) {
-          const isPast = onboarding && cycle < onboarding.startCycle;
-          contributions.push({
-            committee_id: committeeId,
-            member_id: memberId,
-            cycle_number: cycle,
-            payment_number: paymentNum,
-            status: isPast ? 'paid' : 'pending'
-          });
-        }
-      }
+      // Track payment numbers per member within this cycle to avoid duplicate keys
+      const memberCounters = {};
+      memberIds.forEach(memberId => {
+        const isPast = onboarding && cycle < onboarding.startCycle;
+        // Increment the counter for this member
+        const paymentNumber = (memberCounters[memberId] || 0) + 1;
+        memberCounters[memberId] = paymentNumber;
+        contributions.push({
+          committee_id: committeeId,
+          member_id: memberId,
+          cycle_number: cycle,
+          payment_number: paymentNumber,
+          status: isPast ? 'paid' : 'pending'
+        });
+      });
     }
     
-    const { error: cError } = await supabase.from('contributions').insert(contributions);
+    const { error: cError } = await supabase.from('contributions').upsert(contributions, { onConflict: 'committee_id,member_id,cycle_number,payment_number' });
     if (cError) throw cError;
 
     // Generate Initial Payout Records (Existing Committee Migration)
@@ -148,6 +158,67 @@ export const useStore = create((set, get) => ({
 
     await get().fetchData();
     return committee;
+  },
+
+  // --- Update an existing committee (rename, reorder, change amounts / members / frequency) ---
+  // NOTE: never resets already-paid contributions. It drops only still-pending rows,
+  // then re-creates the base pending set for the current member/cycle layout while
+  // preserving every 'paid' row (and any on-demand weekly rows) via ignoreDuplicates.
+  updateCommittee: async (committeeId, committeeData) => {
+    const {
+      name, frequency, payoutMethod, totalAmount, contributionAmount,
+      weeklyContribution, cycles, payoutsPerCycle, paymentsPerCycle,
+      startDate, members: memberIds
+    } = committeeData;
+
+    const { error } = await supabase.from('committees').update({
+      name,
+      frequency,
+      payout_method: payoutMethod,
+      total_amount: totalAmount,
+      contribution_amount: contributionAmount,
+      weekly_contribution: weeklyContribution,
+      cycles,
+      payouts_per_cycle: payoutsPerCycle,
+      payments_per_cycle: paymentsPerCycle,
+      members_order: memberIds,
+      ...(startDate ? { start_date: startDate } : {}),
+    }).eq('id', committeeId);
+
+    if (error) throw error;
+
+    // Drop pending rows (safe — unpaid); paid history is left untouched.
+    const { error: delErr } = await supabase.from('contributions')
+      .delete()
+      .eq('committee_id', committeeId)
+      .eq('status', 'pending');
+    if (delErr) throw delErr;
+
+    // Re-create the base pending rows for the current layout.
+    // ignoreDuplicates keeps any surviving 'paid' rows exactly as they were.
+    const contributions = [];
+    for (let cycle = 1; cycle <= cycles; cycle++) {
+      const memberCounters = {};
+      memberIds.forEach(memberId => {
+        const paymentNumber = (memberCounters[memberId] || 0) + 1;
+        memberCounters[memberId] = paymentNumber;
+        contributions.push({
+          committee_id: committeeId,
+          member_id: memberId,
+          cycle_number: cycle,
+          payment_number: paymentNumber,
+          status: 'pending'
+        });
+      });
+    }
+
+    if (contributions.length > 0) {
+      const { error: cError } = await supabase.from('contributions')
+        .upsert(contributions, { onConflict: 'committee_id,member_id,cycle_number,payment_number', ignoreDuplicates: true });
+      if (cError) throw cError;
+    }
+
+    await get().fetchData();
   },
 
   deleteCommittee: async (id) => {

@@ -103,27 +103,28 @@ export default function TransactionsScreen() {
       <meta charset="utf-8">
       <title>RIZQLY Statement</title>
       <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #1f2937; padding: 25px; line-height: 1.5; background-color: #fff; }
-        .receipt-card { max-width: 800px; margin: auto; padding: 15px; }
-        .header { background: linear-gradient(135deg, #064E3B 0%, #022C22 100%); color: #fff; padding: 35px; border-radius: 20px; margin-bottom: 30px; position: relative; border-bottom: 5px solid #D4AF37; }
-        .header h1 { margin: 0; font-size: 26px; letter-spacing: 2px; color: #D4AF37; font-family: Georgia, serif; }
-        .header p { margin: 8px 0 0 0; font-size: 13px; opacity: 0.85; font-weight: bold; }
-        .badge { position: absolute; top: 30px; right: 30px; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 30px; font-size: 11px; color: #D4AF37; letter-spacing: 1px; font-weight: bold; }
-        .summary { display: flex; justify-content: space-between; gap: 15px; margin-bottom: 30px; }
-        .sum-box { flex: 1; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 16px; padding: 18px; text-align: center; }
-        .sum-label { font-size: 10px; color: #6b7280; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; }
-        .sum-val { font-size: 20px; font-weight: bold; color: #111827; margin-top: 6px; font-family: Georgia, serif; }
-        .val-in { color: #10b981; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; color: #1e293b; padding: 30px; background-color: #f8fafc; }
+        .receipt-card { max-width: 850px; margin: auto; background-color: #ffffff; padding: 40px; border-radius: 24px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05); border: 1px solid #e2e8f0; }
+        .header { background: linear-gradient(135deg, #064E3B 0%, #022C22 100%); color: #fff; padding: 40px; border-radius: 20px; margin-bottom: 35px; position: relative; border-bottom: 5px solid #D4AF37; }
+        .header h1 { margin: 0; font-size: 28px; letter-spacing: 1.5px; color: #D4AF37; font-family: Georgia, serif; font-weight: 700; text-transform: uppercase; }
+        .header p { margin: 8px 0 0 0; font-size: 13px; color: #a7f3d0; letter-spacing: 0.5px; text-transform: uppercase; font-weight: 600; }
+        .badge { position: absolute; top: 40px; right: 40px; background: rgba(212, 175, 55, 0.15); border: 1px solid #D4AF37; padding: 8px 18px; border-radius: 30px; font-size: 11px; color: #D4AF37; letter-spacing: 1.5px; font-weight: bold; text-transform: uppercase; }
+        .summary { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 40px; }
+        .sum-box { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 18px; padding: 22px 18px; text-align: center; }
+        .sum-label { font-size: 10px; color: #64748b; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; }
+        .sum-val { font-size: 22px; font-weight: 800; color: #0f172a; margin-top: 8px; font-family: Georgia, serif; }
+        .val-in { color: #059669; }
         .val-out { color: #D4AF37; }
+        .section-title { font-size: 18px; font-family: Georgia, serif; font-weight: 700; color: #0f172a; border-bottom: 2px solid #D4AF37; padding-bottom: 8px; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { background-color: #f3f4f6; color: #374151; text-align: left; padding: 14px 16px; font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; border-bottom: 2px solid #e5e7eb; }
-        td { padding: 14px 16px; border-bottom: 1px solid #f3f4f6; font-size: 13px; color: #4b5563; }
-        tr:hover { background-color: #f9fafb; }
-        .bold-text { font-weight: bold; color: #111827; }
-        .type-badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; }
-        .type-in { background-color: #ecfdf5; color: #047857; }
-        .type-out { background-color: #fffbeb; color: #b45309; }
-        .footer { text-align: center; margin-top: 60px; padding-top: 25px; border-top: 1px solid #f3f4f6; font-size: 11px; color: #9ca3af; letter-spacing: 1.5px; font-weight: bold; }
+        th { background-color: #f1f5f9; color: #475569; text-align: left; padding: 14px 18px; font-size: 11px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; border-bottom: 2px solid #cbd5e1; }
+        td { padding: 16px 18px; border-bottom: 1px solid #f1f5f9; font-size: 13.5px; color: #334155; }
+        tr:hover { background-color: #f8fafc; }
+        .bold-text { font-weight: bold; color: #0f172a; }
+        .type-badge { display: inline-block; padding: 5px 12px; border-radius: 20px; font-size: 10.5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+        .type-in { background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+        .type-out { background-color: #fefbeb; color: #b45309; border: 1px solid #fde68a; }
+        .footer { text-align: center; margin-top: 70px; padding-top: 30px; border-top: 1px solid #e2e8f0; font-size: 10.5px; color: #94a3b8; letter-spacing: 2px; font-weight: bold; }
         .dev-tag { color: #D4AF37; }
       </style>
     </head>
@@ -133,7 +134,7 @@ export default function TransactionsScreen() {
           <h1>RIZQLY FINANCIAL PLATFORM</h1>
           <p>Official Global Ledger Account Statement</p>
           <div class="badge">${filterLabel.toUpperCase()}</div>
-          <p style="margin-top: 15px; font-size: 11px; opacity: 0.7;">RUN DATE: ${now.toLocaleString()}</p>
+          <p style="margin-top: 20px; font-size: 10.5px; color: #a7f3d0; opacity: 0.8; font-weight: 400; letter-spacing: 0.8px;">RUN DATE: ${now.toLocaleString()}</p>
         </div>
         
         <div class="summary">
@@ -151,7 +152,7 @@ export default function TransactionsScreen() {
           </div>
         </div>
         
-        <h3>Itemized Audit Ledger</h3>
+        <div class="section-title">Itemized Audit Ledger</div>
         <table>
           <thead>
             <tr>

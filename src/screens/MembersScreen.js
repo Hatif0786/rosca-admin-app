@@ -5,6 +5,7 @@ import { useStore } from '../store/useStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import Icon from '@expo/vector-icons/MaterialCommunityIcons';
+import { sendWelcomeWhatsApp } from '../lib/whatsapp';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -35,6 +36,8 @@ export default function MembersScreen() {
     if (name && phone) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
       await addMember(name, phone);
+      // Send WhatsApp welcome notification via Evolution API
+      sendWelcomeWhatsApp(name, phone).catch(err => console.warn('WhatsApp welcome fail:', err));
       setName('');
       setPhone('');
       setShowAdd(false);
