@@ -3,14 +3,35 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Rizqly — ROSCA & Community Savings Management App</title>
-  <meta name="description" content="Rizqly is a free Android app for managing ROSCA committees (Kameti). Track contributions, payouts, members, and generate PDF statements — all in one place.">
+  <title>Rizqly — ROSCA & Community Savings Management</title>
+  <meta name="description" content="Rizqly is a free Android app for managing ROSCA committees (Kameti). Track monthly & weekly contributions, payouts, members, and generate PDF statements — 0% interest, pure halal community savings.">
+  
+  <!-- Canonical Link -->
+  <link rel="canonical" href="https://hatif0786.github.io/rosca-admin-app/">
+
+  <!-- Favicon & Touch Icons (Real Application Logo) -->
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png">
+
+  <!-- Open Graph / Social -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://hatif0786.github.io/rosca-admin-app/">
   <meta property="og:title" content="Rizqly — ROSCA & Community Savings Management">
   <meta property="og:description" content="Simple, transparent ROSCA management for your community. Track contributions, manage payouts, and generate financial statements on Android.">
-  <meta property="og:type" content="website">
+  <meta property="og:image" content="assets/rizqly-logo.png">
+
+  <!-- Twitter / X Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Rizqly — ROSCA & Community Savings Management">
+  <meta name="twitter:description" content="Free Android application for managing monthly & weekly community ROSCA committees, payouts, and digital ledgers.">
+  <meta name="twitter:image" content="assets/rizqly-logo.png">
+
+  <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
+  
   <style>
     /* ─── Design Tokens ─────────────────────────────────────────────────── */
     :root {
@@ -24,7 +45,7 @@
       --surface: #FFFFFF;
       --surface2: #F3F4F6;
       --text: #111827;
-      --text-muted: #6B7280;
+      --text-muted: #4B5563;
       --text-light: #9CA3AF;
       --border: #E5E7EB;
       --mint: #10B981;
@@ -84,7 +105,7 @@
       font-size: clamp(28px, 4vw, 42px); font-weight: 800;
       line-height: 1.15; letter-spacing: -0.02em; margin-bottom: 14px;
     }
-    .section-desc { font-size: 16px; color: var(--text-muted); max-width: 560px; }
+    .section-desc { font-size: 16px; color: var(--text-muted); max-width: 600px; }
     .section-head { text-align: center; margin-bottom: 56px; }
     .section-head .section-desc { margin: 0 auto; }
 
@@ -92,26 +113,23 @@
     .navbar {
       position: sticky; top: 0; z-index: 900;
       backdrop-filter: blur(20px) saturate(1.5);
-      background: rgba(250,249,246,0.88);
+      background: rgba(250,249,246,0.92);
       border-bottom: 1px solid var(--border);
       padding: 14px 32px;
       display: flex; justify-content: space-between; align-items: center;
       transition: background var(--transition), border-color var(--transition);
     }
-    [data-theme="dark"] .navbar { background: rgba(8,14,12,0.9); }
-    .brand { display: flex; align-items: center; gap: 11px; }
-    .logo-badge {
-      width: 38px; height: 38px;
-      background: linear-gradient(135deg, #064E3B, #022C22);
-      border: 1.5px solid var(--gold); border-radius: 10px;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--gold); font-weight: 900; font-size: 18px;
+    [data-theme="dark"] .navbar { background: rgba(8,14,12,0.92); }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-logo-img {
+      width: 36px; height: 36px; border-radius: 8px;
+      object-fit: cover; box-shadow: 0 2px 8px rgba(6,78,59,0.2);
     }
-    .brand-name { font-family: 'Cinzel', serif; font-size: 20px; font-weight: 800; letter-spacing: 2px; color: var(--primary); }
+    .brand-name { font-family: 'Cinzel', serif; font-size: 21px; font-weight: 800; letter-spacing: 2px; color: var(--primary); }
     [data-theme="dark"] .brand-name { color: var(--gold); }
-    .nav-links { display: flex; gap: 6px; }
+    .nav-links { display: flex; gap: 4px; }
     .nav-links a {
-      padding: 7px 13px; border-radius: 8px;
+      padding: 8px 14px; border-radius: 8px;
       font-size: 13px; font-weight: 600; color: var(--text-muted);
       transition: color var(--transition), background var(--transition);
     }
@@ -173,7 +191,7 @@
 
     /* ─── Hero ──────────────────────────────────────────────────────────── */
     .hero {
-      padding: 96px 0 72px;
+      padding: 80px 0 64px;
       display: grid; grid-template-columns: 1.15fr 1fr; gap: 56px; align-items: center;
     }
     .hero-eyebrow {
@@ -185,18 +203,18 @@
     }
     [data-theme="dark"] .hero-eyebrow { background: rgba(212,175,55,0.1); color: var(--gold); border-color: rgba(212,175,55,0.25); }
     .hero h1 {
-      font-size: clamp(36px, 5vw, 56px); line-height: 1.1; font-weight: 800;
+      font-size: clamp(36px, 5vw, 54px); line-height: 1.12; font-weight: 800;
       letter-spacing: -0.03em; margin-bottom: 20px;
     }
     .hero h1 .highlight { color: var(--primary); }
     [data-theme="dark"] .hero h1 .highlight { color: var(--gold); }
-    .hero-desc { font-size: 17px; color: var(--text-muted); margin-bottom: 34px; line-height: 1.7; max-width: 500px; }
+    .hero-desc { font-size: 17px; color: var(--text-muted); margin-bottom: 34px; line-height: 1.7; max-width: 520px; }
     .hero-ctas { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 40px; }
     .hero-trust { display: flex; gap: 24px; flex-wrap: wrap; }
     .trust-item { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; color: var(--text-muted); }
     .trust-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mint); flex-shrink: 0; }
 
-    /* Dashboard Mockup */
+    /* Mockup Visual */
     .mockup-wrap {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -208,8 +226,10 @@
       display: flex; justify-content: space-between; align-items: center;
       border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px;
     }
+    .mockup-brand { display: flex; align-items: center; gap: 10px; }
+    .mockup-app-icon { width: 32px; height: 32px; border-radius: 8px; }
     .mockup-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; color: var(--text-muted); text-transform: uppercase; }
-    .mockup-title { font-size: 15px; font-weight: 800; margin-top: 2px; }
+    .mockup-title { font-size: 15px; font-weight: 800; margin-top: 1px; }
     .mockup-badge {
       background: rgba(16,185,129,0.12); color: var(--mint);
       padding: 4px 10px; border-radius: 9999px; font-size: 11px; font-weight: 700;
@@ -221,7 +241,7 @@
     }
     [data-theme="dark"] .stat-card { background: rgba(255,255,255,0.03); }
     .stat-card .label { font-size: 10px; font-weight: 700; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; }
-    .stat-card .value { font-size: 22px; font-weight: 800; color: var(--primary); margin-top: 4px; }
+    .stat-card .value { font-size: 20px; font-weight: 800; color: var(--primary); margin-top: 4px; }
     [data-theme="dark"] .stat-card .value { color: var(--gold); }
     .stat-card .value.green { color: var(--mint); }
     .mockup-row {
@@ -249,13 +269,13 @@
     /* ─── Stats Banner ──────────────────────────────────────────────────── */
     .stats-banner {
       background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      border-radius: 20px; padding: 48px 56px;
+      border-radius: 20px; padding: 44px 56px;
       display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px;
       margin: 0 0 88px;
     }
     .stat-item { text-align: center; }
-    .stat-item .number { font-size: 36px; font-weight: 800; color: var(--gold); line-height: 1; }
-    .stat-item .desc { font-size: 13px; color: rgba(255,255,255,0.75); margin-top: 6px; font-weight: 500; }
+    .stat-item .number { font-size: 34px; font-weight: 800; color: var(--gold); line-height: 1; }
+    .stat-item .desc { font-size: 13px; color: rgba(255,255,255,0.78); margin-top: 6px; font-weight: 500; }
 
     /* ─── Features ──────────────────────────────────────────────────────── */
     .features-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
@@ -268,7 +288,7 @@
     .feature-card:hover { transform: translateY(-4px); box-shadow: var(--shadow); border-color: rgba(6,78,59,0.2); }
     [data-theme="dark"] .feature-card:hover { border-color: rgba(212,175,55,0.25); }
     .feature-icon {
-      width: 52px; height: 52px; border-radius: 14px;
+      width: 50px; height: 50px; border-radius: 12px;
       background: linear-gradient(135deg, rgba(6,78,59,0.1), rgba(6,78,59,0.05));
       display: flex; align-items: center; justify-content: center;
       font-size: 24px; margin-bottom: 16px;
@@ -279,43 +299,77 @@
     .feature-card p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
 
     /* ─── How It Works ──────────────────────────────────────────────────── */
-    .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 28px; }
+    .steps-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 24px; }
     .step-card {
       position: relative; background: var(--surface);
       border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 28px 24px; box-shadow: var(--shadow-sm);
+      padding: 26px 22px; box-shadow: var(--shadow-sm);
       transition: transform var(--transition);
     }
     .step-card:hover { transform: translateY(-3px); }
     .step-num {
-      width: 40px; height: 40px; border-radius: 10px;
+      width: 38px; height: 38px; border-radius: 10px;
       background: linear-gradient(135deg, var(--primary), var(--primary-dark));
-      color: var(--gold); font-weight: 900; font-size: 16px;
+      color: var(--gold); font-weight: 900; font-size: 15px;
       display: flex; align-items: center; justify-content: center;
-      margin-bottom: 16px; box-shadow: 0 4px 12px rgba(6,78,59,0.3);
+      margin-bottom: 14px; box-shadow: 0 4px 12px rgba(6,78,59,0.3);
     }
-    .step-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+    .step-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
     .step-card p { font-size: 13px; color: var(--text-muted); line-height: 1.65; }
 
-    /* ─── Calculator ────────────────────────────────────────────────────── */
+    /* ─── Calculator Section ────────────────────────────────────────────── */
     .calc-wrap {
       background: var(--surface); border: 2px solid var(--gold);
-      border-radius: 20px; padding: 48px;
-      box-shadow: 0 8px 32px rgba(212,175,55,0.12);
+      border-radius: 24px; padding: 44px;
+      box-shadow: 0 12px 36px rgba(212,175,55,0.14);
     }
-    .calc-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 48px; align-items: center; }
-    .calc-group { margin-bottom: 28px; }
-    .calc-group label { font-size: 14px; font-weight: 600; display: block; margin-bottom: 10px; }
-    .calc-group input[type="range"] { width: 100%; accent-color: var(--primary); height: 4px; }
-    .pot-box {
+    .segmented-control {
+      display: flex; background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 12px; padding: 4px; margin-bottom: 28px; gap: 4px;
+    }
+    .segmented-btn {
+      flex: 1; padding: 10px 16px; border: none; background: transparent;
+      font-size: 13px; font-weight: 700; border-radius: 9px; color: var(--text-muted);
+      transition: background var(--transition), color var(--transition);
+    }
+    .segmented-btn.active {
+      background: var(--primary); color: #fff; box-shadow: 0 2px 8px rgba(6,78,59,0.2);
+    }
+    [data-theme="dark"] .segmented-btn.active { background: var(--gold); color: #022C22; }
+    
+    .calc-grid-full { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+    .calc-form-group { margin-bottom: 22px; }
+    .calc-form-group label {
+      font-size: 13px; font-weight: 700; display: flex; justify-content: space-between;
+      margin-bottom: 8px; color: var(--text);
+    }
+    .calc-form-group label span.val { color: var(--primary); font-weight: 800; }
+    [data-theme="dark"] .calc-form-group label span.val { color: var(--gold); }
+    .calc-input-row { display: flex; gap: 10px; align-items: center; }
+    .calc-num-input {
+      width: 100%; padding: 10px 14px; border-radius: 10px;
+      border: 1px solid var(--border); background: var(--bg); color: var(--text);
+      font-size: 14px; font-weight: 700; font-family: inherit;
+    }
+    .calc-num-input:focus { outline: 2px solid var(--primary); }
+    .pot-card-box {
       background: linear-gradient(135deg, #064E3B, #022C22);
-      border: 1px solid var(--gold); border-radius: 16px; padding: 36px;
-      text-align: center; color: #fff;
+      border: 1.5px solid var(--gold); border-radius: 18px; padding: 32px;
+      color: #fff; display: flex; flex-direction: column; justify-content: space-between;
     }
-    .pot-label { font-size: 11px; letter-spacing: 2px; font-weight: 700; color: rgba(255,255,255,0.7); text-transform: uppercase; }
-    .pot-amount { font-size: 40px; font-weight: 900; color: var(--gold); margin: 10px 0 4px; }
-    .pot-sub { font-size: 13px; color: rgba(255,255,255,0.85); }
-    .pot-note { margin-top: 14px; font-size: 11px; color: var(--gold); font-weight: 600; }
+    .pot-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .pot-card-label { font-size: 11px; letter-spacing: 1.5px; font-weight: 700; color: rgba(255,255,255,0.7); text-transform: uppercase; }
+    .pot-card-amount { font-size: 36px; font-weight: 900; color: var(--gold); line-height: 1.1; margin: 4px 0 12px; }
+    .pot-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 16px; }
+    .pot-meta-item .meta-lbl { font-size: 10px; color: rgba(255,255,255,0.65); text-transform: uppercase; font-weight: 700; }
+    .pot-meta-item .meta-val { font-size: 14px; font-weight: 800; color: #fff; margin-top: 2px; }
+    .schedule-preview {
+      margin-top: 20px; background: rgba(0,0,0,0.2); border-radius: 12px;
+      padding: 14px; max-height: 180px; overflow-y: auto; font-size: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .schedule-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .schedule-row:last-child { border-bottom: none; }
 
     /* ─── Download Section ──────────────────────────────────────────────── */
     .download-wrap {
@@ -329,9 +383,11 @@
       background: rgba(212,175,55,0.07);
     }
     .download-content { position: relative; z-index: 1; }
+    .download-brand-header { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+    .download-brand-logo { width: 44px; height: 44px; border-radius: 10px; border: 1px solid var(--gold); }
     .download-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; flex-wrap: wrap; }
     .download-title { font-size: 34px; font-weight: 800; color: #fff; line-height: 1.2; margin-bottom: 10px; }
-    .download-desc { font-size: 15px; color: rgba(255,255,255,0.78); max-width: 440px; }
+    .download-desc { font-size: 15px; color: rgba(255,255,255,0.78); max-width: 460px; }
     #releasePanel { margin-top: 36px; }
     .release-card {
       background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.15);
@@ -347,7 +403,7 @@
     .badge-pending { background: rgba(212,175,55,0.2); color: var(--gold-light); border: 1px solid rgba(212,175,55,0.3); }
     .badge-failed { background: rgba(239,68,68,0.2); color: #FCA5A5; border: 1px solid rgba(239,68,68,0.3); }
     .release-version { font-size: 20px; font-weight: 800; color: #fff; }
-    .release-meta { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 2px; }
+    .release-meta { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 2px; }
     .release-notes { margin: 16px 0; padding-left: 0; }
     .release-notes li { font-size: 13px; color: rgba(255,255,255,0.78); padding: 4px 0 4px 20px; position: relative; }
     .release-notes li::before { content: '→'; position: absolute; left: 0; color: var(--gold); font-weight: 700; }
@@ -487,9 +543,12 @@
       margin-top: 24px;
     }
     .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 40px; margin-bottom: 40px; }
-    .footer-brand .brand-name { font-family: 'Cinzel', serif; font-size: 18px; font-weight: 800; letter-spacing: 2px; color: var(--primary); margin-bottom: 10px; display: block; }
+    .footer-brand { display: flex; flex-direction: column; gap: 8px; }
+    .footer-brand-title { display: flex; align-items: center; gap: 10px; }
+    .footer-brand-logo { width: 32px; height: 32px; border-radius: 8px; }
+    .footer-brand .brand-name { font-family: 'Cinzel', serif; font-size: 18px; font-weight: 800; letter-spacing: 2px; color: var(--primary); }
     [data-theme="dark"] .footer-brand .brand-name { color: var(--gold); }
-    .footer-brand p { font-size: 13px; color: var(--text-muted); line-height: 1.7; max-width: 260px; }
+    .footer-brand p { font-size: 13px; color: var(--text-muted); line-height: 1.7; max-width: 280px; }
     .footer-col h4 { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 14px; }
     .footer-col a { display: block; font-size: 13px; color: var(--text-muted); padding: 4px 0; transition: color var(--transition); }
     .footer-col a:hover { color: var(--primary); }
@@ -502,7 +561,7 @@
       .hero { grid-template-columns: 1fr; padding: 60px 0 48px; }
       .mockup-wrap { display: none; }
       .stats-banner { grid-template-columns: 1fr 1fr; }
-      .calc-grid { grid-template-columns: 1fr; }
+      .calc-grid-full { grid-template-columns: 1fr; }
       .install-grid { grid-template-columns: 1fr; }
       .docs-layout { grid-template-columns: 1fr; }
       .docs-nav { position: static; }
@@ -528,12 +587,13 @@
 <!-- ─── Navbar ─────────────────────────────────────────────────────────────── -->
 <nav class="navbar" role="navigation" aria-label="Main navigation">
   <a href="#" class="brand" aria-label="Rizqly home">
-    <div class="logo-badge" aria-hidden="true">◆</div>
+    <img src="assets/rizqly-logo.png" alt="Rizqly Logo" class="brand-logo-img">
     <span class="brand-name">RIZQLY</span>
   </a>
   <ul class="nav-links" aria-label="Navigation links">
     <li><a href="#features">Features</a></li>
     <li><a href="#how-it-works">How It Works</a></li>
+    <li><a href="#calculator">Calculator</a></li>
     <li><a href="#download">Download</a></li>
     <li><a href="#docs">Documentation</a></li>
     <li><a href="#releases">Releases</a></li>
@@ -552,6 +612,7 @@
 <nav class="mobile-nav" id="mobileNav" aria-label="Mobile navigation">
   <a href="#features" onclick="toggleMenu()">Features</a>
   <a href="#how-it-works" onclick="toggleMenu()">How It Works</a>
+  <a href="#calculator" onclick="toggleMenu()">Calculator</a>
   <a href="#download" onclick="toggleMenu()">Download</a>
   <a href="#docs" onclick="toggleMenu()">Documentation</a>
   <a href="#releases" onclick="toggleMenu()">Releases</a>
@@ -567,12 +628,12 @@
     <div>
       <div class="hero-eyebrow" aria-label="App tagline">✦ Zero Interest &nbsp;·&nbsp; Community Trust &nbsp;·&nbsp; Full Transparency</div>
       <h1>Simple, Transparent <span class="highlight">ROSCA Management</span> for Your Community</h1>
-      <p class="hero-desc">Rizqly helps you run rotating savings committees — known as ROSCA or Kameti — with ease. Manage members, track contributions, record payouts, and generate PDF statements, all from your Android phone.</p>
+      <p class="hero-desc">Rizqly helps you run rotating savings committees (Kameti) with ease. Support for monthly and weekly schedules, multiple payouts per cycle, digital tracking, and one-tap PDF statements — all from your Android phone.</p>
       <div class="hero-ctas">
         <a href="#download" class="btn-gold" id="heroDownloadBtn" aria-label="Download Rizqly APK">
           <span aria-hidden="true">⬇</span> Download for Android
         </a>
-        <a href="#how-it-works" class="btn-outline">How It Works</a>
+        <a href="#calculator" class="btn-outline">Explore Calculator</a>
       </div>
       <div class="hero-trust" role="list">
         <div class="trust-item" role="listitem"><span class="trust-dot" aria-hidden="true"></span>Free to use</div>
@@ -583,9 +644,12 @@
     </div>
     <div class="mockup-wrap" aria-hidden="true">
       <div class="mockup-topbar">
-        <div>
-          <div class="mockup-label">Executive Treasury</div>
-          <div class="mockup-title">Al-Barakah Savings Group</div>
+        <div class="mockup-brand">
+          <img src="assets/rizqly-logo.png" alt="Rizqly" class="mockup-app-icon">
+          <div>
+            <div class="mockup-label">Executive Treasury</div>
+            <div class="mockup-title">Al-Barakah Savings Group</div>
+          </div>
         </div>
         <span class="mockup-badge">Cycle 03 Active</span>
       </div>
@@ -640,7 +704,7 @@
     <div class="section-head">
       <div class="section-label">What is Rizqly?</div>
       <h2 class="section-title" id="about-title">Community Savings Made Simple</h2>
-      <p class="section-desc">A ROSCA — also known as Kameti, Chit Fund, or Committee — is a group savings arrangement where every member contributes a fixed amount each cycle, and one member receives the full pot. Rizqly makes this completely paperless and transparent.</p>
+      <p class="section-desc">A ROSCA — also known as Kameti, Chit Fund, or Committee — is a group savings arrangement where every member contributes a fixed amount each cycle, and designated members receive payouts. Rizqly makes this completely paperless and transparent.</p>
     </div>
     <div class="features-grid" style="grid-template-columns: repeat(auto-fit, minmax(300px,1fr));">
       <div class="feature-card">
@@ -672,7 +736,7 @@
       <div class="feature-card">
         <div class="feature-icon" aria-hidden="true">🏛️</div>
         <h3>Committee Management</h3>
-        <p>Create and manage multiple committees. Set the name, contribution amount, frequency, and payout rules. Each committee runs its own independent cycle.</p>
+        <p>Create and manage multiple committees. Set contribution amounts, choose Monthly or Weekly schedules, and configure single or multiple payout slots per cycle.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon" aria-hidden="true">👥</div>
@@ -682,17 +746,17 @@
       <div class="feature-card">
         <div class="feature-icon" aria-hidden="true">💳</div>
         <h3>Contribution Tracking</h3>
-        <p>Record each member's payment for every cycle. See who has paid, who is overdue, and the total collected — at a glance.</p>
+        <p>Record each member's payment for every cycle. Track weekly and monthly instalments with clear payment statuses.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon" aria-hidden="true">💰</div>
-        <h3>Payout Management</h3>
-        <p>Record which member receives the pot for each cycle. Track payout dates, amounts, and cycle numbers with a permanent timestamped record.</p>
+        <h3>Payout Scheduling</h3>
+        <p>Record which member receives the pot for each cycle slot. Track payout dates, amounts, and cycle numbers with a permanent timestamped record.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon" aria-hidden="true">📊</div>
         <h3>Treasury Dashboard</h3>
-        <p>Get a real-time overview of your committees — total pool value, disbursed pots, active cycles, and pending contributions — on one screen.</p>
+        <p>Get a real-time overview of your Bait-ul-Maal treasury — total pool value, disbursed pots, active cycles, and pending contributions — on one screen.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon" aria-hidden="true">📄</div>
@@ -702,11 +766,11 @@
       <div class="feature-card">
         <div class="feature-icon" aria-hidden="true">💾</div>
         <h3>Backup & Restore</h3>
-        <p>Export a complete backup of your data to your device at any time. Restore it instantly if you change phones or need to recover information.</p>
+        <p>Export a complete JSON backup of your data to your device at any time. Restore it instantly if you change phones or need to recover information.</p>
       </div>
       <div class="feature-card">
         <div class="feature-icon" aria-hidden="true">💬</div>
-        <h3>WhatsApp Notifications</h3>
+        <h3>WhatsApp Receipts</h3>
         <p>Optionally send automated WhatsApp receipts to members when their contribution or payout is recorded — powered by Evolution API.</p>
       </div>
     </div>
@@ -722,69 +786,130 @@
     <div class="steps-grid">
       <div class="step-card">
         <div class="step-num" aria-label="Step 1">1</div>
-        <h3>Sign In</h3>
-        <p>Create your account with your email address. Your account is personal and private — only you can see your committees and members.</p>
+        <h3>Create Account</h3>
+        <p>Sign up securely with your email address to establish your personal committee directory.</p>
       </div>
       <div class="step-card">
         <div class="step-num" aria-label="Step 2">2</div>
         <h3>Add Members</h3>
-        <p>Build your member directory. Add each person's name and phone number. Members are reusable across all your committees.</p>
+        <p>Add member names and phone numbers to your global directory for easy committee assignment.</p>
       </div>
       <div class="step-card">
         <div class="step-num" aria-label="Step 3">3</div>
-        <h3>Create a Committee</h3>
-        <p>Set up a new committee with its name, contribution amount per cycle, frequency (weekly, monthly, or custom), and payout configuration.</p>
+        <h3>Configure Committee</h3>
+        <p>Set frequency (Monthly/Weekly), total pool or weekly rate, and choose 1 or N payout slots per cycle.</p>
       </div>
       <div class="step-card">
         <div class="step-num" aria-label="Step 4">4</div>
         <h3>Track Contributions</h3>
-        <p>Each cycle, record who has paid and who hasn't. Rizqly shows you payment status for every member so nothing slips through.</p>
+        <p>Record instalment payments per cycle. Overdue and completed contributions are clearly flagged.</p>
       </div>
       <div class="step-card">
         <div class="step-num" aria-label="Step 5">5</div>
-        <h3>Record Payouts</h3>
-        <p>When a member receives their pot, record it in Rizqly. Set the member, amount, cycle, and date. The record is permanent.</p>
+        <h3>Record Disbursements</h3>
+        <p>Disburse pot funds to designated members per slot and log permanent date and amount records.</p>
       </div>
       <div class="step-card">
         <div class="step-num" aria-label="Step 6">6</div>
-        <h3>Review the Ledger</h3>
-        <p>View the full transaction history for any committee. Filter by date, member, or transaction type to find exactly what you need.</p>
+        <h3>Review Ledger</h3>
+        <p>Inspect transparent transaction histories per cycle, member, and committee schedule.</p>
       </div>
       <div class="step-card">
         <div class="step-num" aria-label="Step 7">7</div>
-        <h3>Generate Statements</h3>
-        <p>Produce a professional PDF statement in one tap. Share it with members or keep it for your own records and accounting.</p>
+        <h3>Share Statements</h3>
+        <p>Export branded PDF reports and send receipts to members in one tap.</p>
       </div>
     </div>
   </section>
 
 </div>
 
-<!-- ─── Calculator ──────────────────────────────────────────────────────────── -->
+<!-- ─── Advanced Committee Calculator ────────────────────────────────────────── -->
 <div class="container">
   <section id="calculator" aria-labelledby="calc-title">
     <div class="calc-wrap">
-      <div class="section-head" style="margin-bottom:36px">
-        <div class="section-label">ROSCA Calculator</div>
-        <h2 class="section-title" id="calc-title">Estimate Your Committee Pot</h2>
-        <p class="section-desc">Adjust the sliders to calculate the total winner pot and cycle duration for your committee.</p>
+      <div class="section-head" style="margin-bottom:28px">
+        <div class="section-label">Interactive Tool</div>
+        <h2 class="section-title" id="calc-title">Rizqly Committee Calculator</h2>
+        <p class="section-desc">Simulate monthly or weekly ROSCA committees using the exact calculation formulas from the Rizqly Android app.</p>
       </div>
-      <div class="calc-grid">
+
+      <!-- Frequency Selector -->
+      <div class="segmented-control" role="tablist" aria-label="Committee Frequency">
+        <button class="segmented-btn active" id="freqMonthly" onclick="setFrequency('Monthly')" role="tab" aria-selected="true">Monthly Committee</button>
+        <button class="segmented-btn" id="freqWeekly" onclick="setFrequency('Weekly')" role="tab" aria-selected="false">Weekly Committee</button>
+      </div>
+
+      <div class="calc-grid-full">
+        <!-- Input Controls -->
         <div>
-          <div class="calc-group">
-            <label for="amountRange">Monthly Contribution per Member: <strong id="amountLabel">Rs 10,000</strong></label>
-            <input type="range" id="amountRange" min="2000" max="100000" step="1000" value="10000" oninput="calculatePot()" aria-label="Contribution amount slider">
+          <div class="calc-form-group">
+            <label for="calcMembers">Total Members (or Shares): <span class="val" id="lblMembers">10</span></label>
+            <input type="range" id="calcMembers" min="2" max="50" value="10" oninput="updateCalculator()" style="width:100%;accent-color:var(--primary);">
           </div>
-          <div class="calc-group">
-            <label for="membersRange">Total Committee Members: <strong id="membersLabel">10 Members</strong></label>
-            <input type="range" id="membersRange" min="5" max="30" step="1" value="10" oninput="calculatePot()" aria-label="Members count slider">
+
+          <div class="calc-form-group" id="monthlyAmountGroup">
+            <label for="calcTotalAmount">Total Committee Pool (Per Cycle): <span class="val" id="lblTotalAmount">Rs 100,000</span></label>
+            <input type="range" id="calcTotalAmount" min="10000" max="1000000" step="5000" value="100000" oninput="updateCalculator()" style="width:100%;accent-color:var(--primary);">
+          </div>
+
+          <div class="calc-form-group" id="weeklyAmountGroup" style="display:none;">
+            <label for="calcWeeklyContribution">Weekly Contribution Per Member: <span class="val" id="lblWeeklyContribution">Rs 1,000</span></label>
+            <input type="range" id="calcWeeklyContribution" min="100" max="25000" step="100" value="1000" oninput="updateCalculator()" style="width:100%;accent-color:var(--primary);">
+          </div>
+
+          <div class="calc-form-group">
+            <label for="calcPayoutsPerCycle">Payout Slots Per Cycle: <span class="val" id="lblPayoutsPerCycle">1 Slot</span></label>
+            <div class="calc-input-row">
+              <input type="number" id="calcPayoutsPerCycle" min="1" max="10" value="1" oninput="updateCalculator()" class="calc-num-input">
+            </div>
+            <small style="font-size:11px;color:var(--text-muted);display:block;margin-top:4px;" id="payoutHelpText">
+              Default is 1 payout per cycle. Increase to split the pot into multiple disbursement slots.
+            </small>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:10px;">
+            <button onclick="resetCalculator()" class="btn-ghost" style="border:1px solid var(--border);">Reset Defaults</button>
           </div>
         </div>
-        <div class="pot-box">
-          <div class="pot-label">Total Winner Pot</div>
-          <div class="pot-amount" id="totalPotDisplay" aria-live="polite">Rs 100,000</div>
-          <div class="pot-sub" id="durationDisplay">Cycle Duration: 10 Months</div>
-          <div class="pot-note">✓ 0% Interest — Pure Halal</div>
+
+        <!-- Output Card -->
+        <div class="pot-card-box">
+          <div>
+            <div class="pot-card-header">
+              <span class="pot-card-label" id="potHeaderLabel">Total Pot Per Disbursement Slot</span>
+              <span style="font-size:11px;font-weight:700;color:var(--gold);background:rgba(212,175,55,0.15);padding:3px 8px;border-radius:6px;" id="freqTag">Monthly</span>
+            </div>
+            <div class="pot-card-amount" id="dispPayoutAmount">Rs 100,000</div>
+            <p style="font-size:13px;color:rgba(255,255,255,0.85);" id="dispContributionDetail">Each member pays Rs 10,000 / month</p>
+
+            <div class="pot-meta-grid">
+              <div class="pot-meta-item">
+                <div class="meta-lbl">Total Cycles</div>
+                <div class="meta-val" id="dispCycles">10 Cycles</div>
+              </div>
+              <div class="pot-meta-item">
+                <div class="meta-lbl">Total Duration</div>
+                <div class="meta-val" id="dispDuration">10 Months</div>
+              </div>
+              <div class="pot-meta-item">
+                <div class="meta-lbl">Total Committee Value</div>
+                <div class="meta-val" id="dispTotalPool">Rs 1,000,000</div>
+              </div>
+              <div class="pot-meta-item">
+                <div class="meta-lbl">Payout Slots / Cycle</div>
+                <div class="meta-val" id="dispSlots">1 Slot</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;margin-bottom:6px;">Sample Disbursement Breakdown</div>
+            <div class="schedule-preview" id="schedulePreview">
+              <!-- Dynamically populated -->
+            </div>
+            <div style="font-size:11px;color:var(--gold);margin-top:10px;font-weight:600;text-align:center;">✓ 0% Interest — Pure Halal Community Savings</div>
+          </div>
         </div>
       </div>
     </div>
@@ -799,9 +924,14 @@
       <div class="download-content">
         <div class="download-top">
           <div>
-            <div class="section-label" style="background:rgba(212,175,55,0.15);color:var(--gold);border-color:rgba(212,175,55,0.3);">Android Download</div>
+            <div class="download-brand-header">
+              <img src="assets/rizqly-logo.png" alt="Rizqly Logo" class="download-brand-logo">
+              <div>
+                <div class="section-label" style="background:rgba(212,175,55,0.15);color:var(--gold);border-color:rgba(212,175,55,0.3);margin-bottom:0;">Android Production Build</div>
+              </div>
+            </div>
             <h2 class="download-title" id="download-title">Get Rizqly for Android</h2>
-            <p class="download-desc">Download the official APK and install it directly on your Android device. Free, with no subscriptions or hidden fees.</p>
+            <p class="download-desc">Download the official production APK directly. Free, lightweight, and pre-configured for your community ROSCAs.</p>
           </div>
         </div>
         <div id="releasePanel">
@@ -831,7 +961,7 @@
           <div class="step-circle" aria-hidden="true">2</div>
           <div>
             <h4>Open the downloaded file</h4>
-            <p>Go to your Downloads app or file manager, find <code>Rizqly-1.0.0.apk</code>, and tap it to open it.</p>
+            <p>Go to your Downloads app or file manager, find the APK file, and tap it to open.</p>
           </div>
         </div>
         <div class="install-step">
@@ -859,13 +989,13 @@
       <div>
         <div class="callout" role="note">
           <span class="callout-icon" aria-hidden="true">⚠️</span>
-          <strong>About the "Unknown Source" warning:</strong><br>
-          Android shows a warning when you install an app from outside Google Play. This is a standard Android security feature — it doesn't mean the app is unsafe. Rizqly is a direct-distribution app. You can safely allow the installation.
+          <strong>About the "Unknown Source" prompt:</strong><br>
+          Android shows a prompt when you install an app from outside Google Play. This is a standard Android security notification — it does not indicate an issue. Rizqly is distributed directly as an APK. You can safely allow the installation.
         </div>
         <div class="callout" style="margin-top:16px;" role="note">
           <span class="callout-icon" aria-hidden="true">💡</span>
           <strong>Android version requirement:</strong><br>
-          Rizqly is built with React Native 0.81 and targets Android 8.0 (API 26) and above. Most Android phones from 2018 or later are compatible.
+          Rizqly targets Android 8.0 (API 26) and above. Most Android devices from 2018 or later are compatible.
         </div>
         <div class="callout" style="margin-top:16px;" role="note">
           <span class="callout-icon" aria-hidden="true">🔄</span>
@@ -896,7 +1026,7 @@
         <a href="#doc-records">Financial Records</a>
         <a href="#doc-statements">Statements &amp; PDFs</a>
         <a href="#doc-backup">Backup &amp; Restore</a>
-        <a href="#doc-whatsapp">WhatsApp</a>
+        <a href="#doc-whatsapp">WhatsApp Receipts</a>
       </nav>
       <div class="docs-content">
 
@@ -913,7 +1043,7 @@
           <h2>Account &amp; Login</h2>
           <p>Rizqly uses Supabase for authentication. Your password is never stored in plain text. Your data is stored in a secure cloud database and is associated only with your account.</p>
           <h4>If you forget your password</h4>
-          <p>On the login screen, tap <strong>Forgot Password</strong>. Enter your email address. You will receive a password reset link.</p>
+          <p>On the login screen, tap <strong>Forgot Password</strong>. Enter your email address to receive a password reset link.</p>
           <h4>Signing out</h4>
           <p>To sign out, go to the Dashboard screen and use the <strong>Admin Controls</strong> panel, then tap <strong>Sign Out</strong>.</p>
         </div>
@@ -929,8 +1059,6 @@
             <li>Quick access to Backup &amp; Restore</li>
             <li>Theme toggle (Light / Dark / System)</li>
           </ul>
-          <h4>Admin Controls</h4>
-          <p>The Admin Controls panel (accessible from the Dashboard) lets you sign out and access backup/restore functions.</p>
         </div>
 
         <div class="doc-section" id="doc-members">
@@ -945,9 +1073,6 @@
           </ol>
           <h4>Editing a member</h4>
           <p>Tap the member's name to open their details. Tap the edit icon to update their name or phone number.</p>
-          <h4>Deleting a member</h4>
-          <p>A member can be deleted from the edit screen. Note: deleting a member does not delete their historical contribution and payout records in existing committees.</p>
-          <div class="tip"><strong>Tip:</strong> Add all your members first before creating committees. You can then quickly assign them when setting up a new committee.</div>
         </div>
 
         <div class="doc-section" id="doc-committees">
@@ -958,20 +1083,10 @@
             <li>Tap <strong>Create Committee</strong>.</li>
             <li>Enter the committee name.</li>
             <li>Set the contribution amount per member per cycle.</li>
-            <li>Choose the cycle frequency (weekly, monthly, or custom).</li>
-            <li>Configure payout order and other committee rules.</li>
+            <li>Choose Monthly or Weekly frequency.</li>
+            <li>Configure payout slots per cycle (1 or multiple).</li>
             <li>Tap <strong>Create</strong>.</li>
           </ol>
-          <h4>Committee Detail screen</h4>
-          <p>Tap any committee to open its full detail screen. Here you can see:</p>
-          <ul>
-            <li>All members and their contribution status</li>
-            <li>Current cycle information</li>
-            <li>Payout history</li>
-            <li>Full transaction ledger</li>
-            <li>PDF statement generation</li>
-          </ul>
-          <div class="warn"><strong>Note:</strong> The committee configuration (amount, frequency) should be set correctly before the first cycle begins. Review carefully before proceeding.</div>
         </div>
 
         <div class="doc-section" id="doc-contributions">
@@ -984,78 +1099,39 @@
             <li>Tap the member's row and record their payment.</li>
             <li>Enter the amount and date, then confirm.</li>
           </ol>
-          <h4>Contribution status</h4>
-          <p>Each contribution will show as <strong>Paid</strong> or <strong>Due</strong>. Overdue contributions are clearly flagged.</p>
-          <div class="tip"><strong>Tip:</strong> Record contributions on the day they are received to keep your ledger accurate.</div>
         </div>
 
         <div class="doc-section" id="doc-payouts">
           <h2>Payouts</h2>
-          <p>A payout is when a member receives the full collected pot for their assigned cycle.</p>
+          <p>A payout is when a member receives the pot for their assigned cycle slot.</p>
           <h4>Recording a payout</h4>
           <ol>
             <li>Open the committee.</li>
             <li>Navigate to the Payouts section.</li>
             <li>Tap <strong>Record Payout</strong>.</li>
-            <li>Select the receiving member, the cycle number, the payout amount, and the date.</li>
+            <li>Select the receiving member, cycle number, payout amount, and date.</li>
             <li>Confirm to save the record.</li>
           </ol>
-          <p>The payout record is permanent and appears in the committee's transaction ledger and PDF statement.</p>
         </div>
 
         <div class="doc-section" id="doc-records">
           <h2>Financial Records</h2>
-          <p>The Transactions screen shows a full chronological ledger of all contributions and payouts across all your committees. You can filter by type and date.</p>
-          <p>All records are stored securely in the cloud and are tied to your account. They are accessible on any device you sign in to.</p>
+          <p>The Transactions screen shows a full chronological ledger of all contributions and payouts across all your committees.</p>
         </div>
 
         <div class="doc-section" id="doc-statements">
           <h2>Statements &amp; PDFs</h2>
-          <p>Rizqly can generate a professional PDF statement for any committee. The statement includes:</p>
-          <ul>
-            <li>Committee name and configuration</li>
-            <li>All member contributions by cycle</li>
-            <li>All payouts recorded</li>
-            <li>Total collected and disbursed amounts</li>
-          </ul>
-          <h4>Generating a statement</h4>
-          <ol>
-            <li>Open the committee.</li>
-            <li>Tap <strong>Generate Statement</strong> (or the PDF icon).</li>
-            <li>The PDF is created instantly.</li>
-            <li>Tap <strong>Share</strong> to send it via WhatsApp, email, or save to your device.</li>
-          </ol>
+          <p>Rizqly can generate a branded PDF statement for any committee in one tap. Share it via WhatsApp or email.</p>
         </div>
 
         <div class="doc-section" id="doc-backup">
           <h2>Backup &amp; Restore</h2>
-          <p>Rizqly allows you to export a complete backup of your data as a JSON file and restore it later. This is useful when switching devices or as a safety copy.</p>
-          <h4>Creating a backup</h4>
-          <ol>
-            <li>Go to the Dashboard.</li>
-            <li>Open <strong>Admin Controls</strong>.</li>
-            <li>Tap <strong>Export Backup</strong>.</li>
-            <li>Save the file to your device or share it to cloud storage (Google Drive, etc).</li>
-          </ol>
-          <h4>Restoring from backup</h4>
-          <ol>
-            <li>Go to the Dashboard.</li>
-            <li>Open <strong>Admin Controls</strong>.</li>
-            <li>Tap <strong>Import Backup</strong>.</li>
-            <li>Select your backup file.</li>
-            <li>Confirm the restore. Existing data will be replaced.</li>
-          </ol>
-          <div class="warn"><strong>Important:</strong> Restoring a backup replaces your current data. Make sure you have selected the correct backup file before confirming.</div>
-          <div class="tip"><strong>Cloud note:</strong> The backup is a local file export. Storing it in cloud storage (Google Drive, iCloud, etc.) is your responsibility. Rizqly's automated cloud backup is a planned future feature.</div>
+          <p>Export a complete JSON backup of your data to your device at any time. Restore it instantly if you change phones.</p>
         </div>
 
         <div class="doc-section" id="doc-whatsapp">
-          <h2>WhatsApp Notifications</h2>
-          <p>Rizqly can send automated WhatsApp messages when contributions or payouts are recorded. This feature is powered by the Evolution API and is optional.</p>
-          <h4>Current status</h4>
-          <p>WhatsApp integration is available in the app but requires server-side configuration by the administrator. Individual users cannot configure WhatsApp connections from within the app in the current version.</p>
-          <p>If WhatsApp is not configured, Rizqly safely skips the notification step — no error will occur and your records will still be saved correctly.</p>
-          <div class="tip"><strong>Tip:</strong> All core functionality — recording contributions, payouts, generating statements, and backup — works completely without WhatsApp.</div>
+          <h2>WhatsApp Receipts</h2>
+          <p>Optionally send automated WhatsApp messages when contributions or payouts are recorded — powered by Evolution API.</p>
         </div>
 
       </div>
@@ -1092,9 +1168,16 @@
 
       <div class="faq-item">
         <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>Who is Rizqly for?</span><span class="chevron" aria-hidden="true">▾</span>
+          <span>Does Rizqly support Weekly and Monthly committees?</span><span class="chevron" aria-hidden="true">▾</span>
         </button>
-        <div class="faq-answer">Rizqly is for anyone who organises or participates in a rotating savings group — families, friends, colleagues, and community groups. If you currently track your committee in a notebook or spreadsheet, Rizqly is designed for you.</div>
+        <div class="faq-answer">Yes! Rizqly supports both Monthly committees and Weekly committees. In Weekly mode, each month is treated as 4 contribution weeks with support for custom payout slots per cycle.</div>
+      </div>
+
+      <div class="faq-item">
+        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
+          <span>Can a cycle have multiple payout slots?</span><span class="chevron" aria-hidden="true">▾</span>
+        </button>
+        <div class="faq-answer">Yes. You can configure 1 or N payout slots per cycle, allowing multiple members to receive disbursements during a single committee cycle.</div>
       </div>
 
       <div class="faq-item">
@@ -1111,153 +1194,6 @@
         <div class="faq-answer">Download the APK from the Download section on this page. Open the downloaded file on your Android device, follow the on-screen prompts, and tap Install. See the Installation Guide on this page for detailed step-by-step instructions.</div>
       </div>
 
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>Why does Android show a security warning when I install?</span><span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        <div class="faq-answer">Android shows this warning for any app installed outside of Google Play. It is a standard Android security feature, not an indication that the app is unsafe. Rizqly is distributed directly as an APK. You can safely allow the installation. The warning will not appear again for future updates.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>How do I create a committee?</span><span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        <div class="faq-answer">Go to the Committees tab in the bottom navigation, tap Create Committee, enter the committee name, set the contribution amount and frequency, then tap Create. Your committee will be ready to add members and begin recording contributions.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>How do I add members?</span><span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        <div class="faq-answer">Go to the Members tab, tap Add Member, enter their name and optionally their phone number, and save. Members are stored in your global directory and can be assigned to any committee you create.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>How are contributions recorded?</span><span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        <div class="faq-answer">Open a committee, find the member in the current cycle's contribution list, tap their row, and record the payment. Each contribution captures the member, amount, cycle number, and date.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>Can I generate statements?</span><span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        <div class="faq-answer">Yes. Open any committee and tap Generate Statement. Rizqly creates a PDF with all contributions and payouts for that committee. You can share it via WhatsApp, email, or save it to your device.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>Can I back up my data?</span><span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        <div class="faq-answer">Yes. From the Dashboard, open Admin Controls and tap Export Backup. This creates a JSON file with all your data that you can save to your device or cloud storage. To restore it, tap Import Backup and select the file.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>What happens if I lose my phone?</span><span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        <div class="faq-answer">Your data is stored in a secure cloud database linked to your account. Install Rizqly on your new phone, sign in with the same email and password, and all your committees, members, and records will be restored automatically.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>How do I update Rizqly to a newer version?</span><span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        <div class="faq-answer">Visit this page and download the latest APK from the Download section. Install it over your existing Rizqly installation. Your data and settings will be preserved. There is no need to uninstall the app first.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>How do I know which version I have?</span><span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        <div class="faq-answer">Go to Dashboard → Admin Controls in the app. The current version number is displayed there. You can compare it with the latest version shown on this page.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>Does WhatsApp work for everyone?</span><span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        <div class="faq-answer">WhatsApp notifications are an optional feature powered by Evolution API. It requires server-side configuration and is not individually configurable by app users in the current version. All other features work fully without WhatsApp.</div>
-      </div>
-
-      <div class="faq-item">
-        <button class="faq-question" aria-expanded="false" onclick="toggleFaq(this)">
-          <span>Is Rizqly available on iPhone / iOS?</span><span class="chevron" aria-hidden="true">▾</span>
-        </button>
-        <div class="faq-answer">Rizqly is currently only available on Android. An iOS version is not yet available.</div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- ─── Troubleshooting ───────────────────────────────────────────────────── -->
-  <section id="troubleshooting" aria-labelledby="trouble-title">
-    <div class="section-head">
-      <div class="section-label">Troubleshooting</div>
-      <h2 class="section-title" id="trouble-title">Common Issues &amp; Solutions</h2>
-      <p class="section-desc">Having trouble? Try these solutions before reaching out for support.</p>
-    </div>
-    <div class="trouble-grid">
-      <div class="trouble-card">
-        <h3><span class="problem-tag">Install</span> APK won't install</h3>
-        <p>Possible causes and solutions:</p>
-        <ul>
-          <li>Enable "Install unknown apps" for your browser in Android Settings → Apps</li>
-          <li>Check the download completed fully — retry if the file seems incomplete</li>
-          <li>If you have an older version installed, try updating over it (don't uninstall first)</li>
-          <li>Ensure your Android version is 8.0 or higher</li>
-        </ul>
-      </div>
-      <div class="trouble-card">
-        <h3><span class="problem-tag">Login</span> Can't sign in</h3>
-        <p>Try these steps:</p>
-        <ul>
-          <li>Double-check your email address and password for typos</li>
-          <li>Use the Forgot Password option to reset your password</li>
-          <li>Ensure your phone has an active internet connection</li>
-          <li>Wait a moment and try again — a temporary server issue may resolve itself</li>
-        </ul>
-      </div>
-      <div class="trouble-card">
-        <h3><span class="problem-tag">Data</span> Data not appearing</h3>
-        <p>If committees or members seem missing:</p>
-        <ul>
-          <li>Confirm you are signed in with the correct account email</li>
-          <li>Pull down to refresh on the Committees or Members screen</li>
-          <li>Check your internet connection</li>
-          <li>Sign out and sign back in to force a data refresh</li>
-        </ul>
-      </div>
-      <div class="trouble-card">
-        <h3><span class="problem-tag">WhatsApp</span> WhatsApp not sending</h3>
-        <p>WhatsApp notifications are optional and require server configuration:</p>
-        <ul>
-          <li>If the feature is not configured for your installation, notifications will silently skip — this is normal</li>
-          <li>All contribution and payout records are still saved correctly without WhatsApp</li>
-          <li>Contact your Rizqly administrator if WhatsApp was previously working and has stopped</li>
-        </ul>
-      </div>
-      <div class="trouble-card">
-        <h3><span class="problem-tag">Backup</span> Backup restore failed</h3>
-        <p>If restoring a backup fails:</p>
-        <ul>
-          <li>Ensure the backup file is a <code>.json</code> file exported from Rizqly</li>
-          <li>Do not edit the backup file manually</li>
-          <li>Check that the file is not corrupted — re-export from your previous device if possible</li>
-          <li>Make sure you have enough storage space on your device</li>
-        </ul>
-      </div>
-      <div class="trouble-card">
-        <h3><span class="problem-tag">Update</span> How to update the app</h3>
-        <p>Rizqly is not on Google Play, so updates are manual:</p>
-        <ul>
-          <li>Visit this page and check the Download section for the latest version</li>
-          <li>Download the new APK and install it over your current app</li>
-          <li>Your data is preserved — no need to uninstall first</li>
-          <li>Your account and all records remain after updating</li>
-        </ul>
-      </div>
     </div>
   </section>
 
@@ -1279,10 +1215,10 @@
         <h3>FAQ</h3>
         <p>Answers to the most common questions about using Rizqly.</p>
       </a>
-      <a href="#troubleshooting" class="feature-card" style="cursor:pointer;">
+      <a href="#install-guide" class="feature-card" style="cursor:pointer;">
         <div class="feature-icon" aria-hidden="true">🔧</div>
-        <h3>Troubleshooting</h3>
-        <p>Step-by-step solutions for common installation and usage issues.</p>
+        <h3>Installation Guide</h3>
+        <p>Step-by-step solutions for installing APK on Android.</p>
       </a>
       <a href="#releases" class="feature-card" style="cursor:pointer;">
         <div class="feature-icon" aria-hidden="true">📦</div>
@@ -1292,7 +1228,7 @@
     </div>
     <div class="callout" style="margin-top:32px;max-width:600px;" role="note">
       <span class="callout-icon" aria-hidden="true">📬</span>
-      <strong>GitHub Issues:</strong> For bugs or feature requests, please open an issue on the <a href="https://github.com/Hatif0786/rosca-admin-app/issues" target="_blank" rel="noopener" style="color:var(--primary);font-weight:700;">GitHub repository</a>.
+      <strong>GitHub Repository:</strong> View source code, submit issues, or track updates on <a href="https://github.com/Hatif0786/rosca-admin-app" target="_blank" rel="noopener" style="color:var(--primary);font-weight:700;">GitHub</a>.
     </div>
   </section>
 
@@ -1304,21 +1240,24 @@
   <div class="container">
     <div class="footer-grid">
       <div class="footer-brand">
-        <span class="brand-name">RIZQLY</span>
+        <div class="footer-brand-title">
+          <img src="assets/rizqly-logo.png" alt="Rizqly Logo" class="footer-brand-logo">
+          <span class="brand-name">RIZQLY</span>
+        </div>
         <p>Simple, transparent ROSCA management for your community. Free for Android.</p>
       </div>
       <div class="footer-col">
         <h4>Product</h4>
         <a href="#features">Features</a>
         <a href="#how-it-works">How It Works</a>
-        <a href="#download">Download</a>
         <a href="#calculator">Calculator</a>
+        <a href="#download">Download</a>
       </div>
       <div class="footer-col">
         <h4>Help</h4>
         <a href="#docs">Documentation</a>
         <a href="#faq">FAQ</a>
-        <a href="#troubleshooting">Troubleshooting</a>
+        <a href="#install-guide">Installation</a>
         <a href="#support">Support</a>
       </div>
       <div class="footer-col">
@@ -1357,17 +1296,109 @@
     btn.setAttribute('aria-expanded', isOpen);
   }
 
-  /* ─── Calculator ─────────────────────────────────────────────────────────── */
-  function calculatePot() {
-    const amount = parseInt(document.getElementById('amountRange').value, 10);
-    const members = parseInt(document.getElementById('membersRange').value, 10);
-    document.getElementById('amountLabel').textContent = 'Rs ' + amount.toLocaleString('en-PK');
-    document.getElementById('membersLabel').textContent = members + ' Members';
-    document.getElementById('totalPotDisplay').textContent = 'Rs ' + (amount * members).toLocaleString('en-PK');
-    document.getElementById('durationDisplay').textContent = 'Cycle Duration: ' + members + ' Months';
+  /* ─── Advanced Committee Calculator ──────────────────────────────────────── */
+  let currentFreq = 'Monthly';
+
+  function setFrequency(freq) {
+    currentFreq = freq;
+    document.getElementById('freqMonthly').classList.toggle('active', freq === 'Monthly');
+    document.getElementById('freqMonthly').setAttribute('aria-selected', freq === 'Monthly');
+    document.getElementById('freqWeekly').classList.toggle('active', freq === 'Weekly');
+    document.getElementById('freqWeekly').setAttribute('aria-selected', freq === 'Weekly');
+
+    document.getElementById('monthlyAmountGroup').style.display = freq === 'Monthly' ? 'block' : 'none';
+    document.getElementById('weeklyAmountGroup').style.display = freq === 'Weekly' ? 'block' : 'none';
+    document.getElementById('freqTag').textContent = freq;
+
+    updateCalculator();
   }
 
-  /* ─── FAQ ────────────────────────────────────────────────────────────────── */
+  function updateCalculator() {
+    const members = parseInt(document.getElementById('calcMembers').value, 10) || 1;
+    let payoutsPerCycle = parseInt(document.getElementById('calcPayoutsPerCycle').value, 10) || 1;
+
+    // Enforce limits
+    if (payoutsPerCycle < 1) payoutsPerCycle = 1;
+    if (payoutsPerCycle > members) payoutsPerCycle = members;
+    document.getElementById('calcPayoutsPerCycle').value = payoutsPerCycle;
+
+    document.getElementById('lblMembers').textContent = members + (members === 1 ? ' Member' : ' Members');
+    document.getElementById('lblPayoutsPerCycle').textContent = payoutsPerCycle + (payoutsPerCycle === 1 ? ' Slot' : ' Slots');
+
+    let calculatedContribution = 0;
+    let calculatedPayout = 0;
+    let calculatedCycles = 0;
+    let totalPool = 0;
+    let durationText = '';
+
+    if (currentFreq === 'Weekly') {
+      const wc = parseFloat(document.getElementById('calcWeeklyContribution').value) || 0;
+      document.getElementById('lblWeeklyContribution').textContent = 'Rs ' + wc.toLocaleString('en-PK');
+      
+      // Exact formula from CreateCommitteeScreen.js:
+      // monthlyPool = wc * numMembers * 4
+      // calculatedPayout = ppc > 0 ? monthlyPool / ppc : 0
+      // calculatedCycles = ppc > 0 ? Math.ceil(numMembers / ppc) : 0
+      const monthlyPool = wc * members * 4;
+      calculatedPayout = payoutsPerCycle > 0 ? monthlyPool / payoutsPerCycle : 0;
+      calculatedCycles = payoutsPerCycle > 0 ? Math.ceil(members / payoutsPerCycle) : 0;
+      calculatedContribution = wc;
+      totalPool = wc * members * 4 * calculatedCycles;
+      durationText = (calculatedCycles * 4) + ' Weeks (' + calculatedCycles + ' Months)';
+
+      document.getElementById('potHeaderLabel').textContent = 'Disbursement Per Slot (Monthly Cycle)';
+      document.getElementById('dispContributionDetail').textContent = 'Instalment: Rs ' + wc.toLocaleString('en-PK') + ' / member / week (4 wks/cycle)';
+
+    } else {
+      const ta = parseFloat(document.getElementById('calcTotalAmount').value) || 0;
+      document.getElementById('lblTotalAmount').textContent = 'Rs ' + ta.toLocaleString('en-PK');
+
+      // Monthly formula:
+      // calculatedContribution = ta / numMembers
+      // calculatedPayout = ta / payoutsPerCycle
+      // calculatedCycles = Math.ceil(numMembers / payoutsPerCycle)
+      calculatedContribution = members > 0 ? ta / members : 0;
+      calculatedPayout = payoutsPerCycle > 0 ? ta / payoutsPerCycle : 0;
+      calculatedCycles = payoutsPerCycle > 0 ? Math.ceil(members / payoutsPerCycle) : 0;
+      totalPool = ta * calculatedCycles;
+      durationText = calculatedCycles + ' Months';
+
+      document.getElementById('potHeaderLabel').textContent = 'Disbursement Per Payout Slot';
+      document.getElementById('dispContributionDetail').textContent = 'Instalment: Rs ' + Math.round(calculatedContribution).toLocaleString('en-PK') + ' / member / month';
+    }
+
+    document.getElementById('dispPayoutAmount').textContent = 'Rs ' + Math.round(calculatedPayout).toLocaleString('en-PK');
+    document.getElementById('dispCycles').textContent = calculatedCycles + ' Cycles';
+    document.getElementById('dispDuration').textContent = durationText;
+    document.getElementById('dispTotalPool').textContent = 'Rs ' + Math.round(totalPool).toLocaleString('en-PK');
+    document.getElementById('dispSlots').textContent = payoutsPerCycle + (payoutsPerCycle === 1 ? ' Slot' : ' Slots');
+
+    // Build sample schedule preview
+    let schedHtml = '';
+    let memberIndex = 1;
+    for (let c = 1; c <= calculatedCycles; c++) {
+      for (let s = 1; s <= payoutsPerCycle; s++) {
+        if (memberIndex <= members) {
+          schedHtml += `<div class="schedule-row">
+            <span>Cycle ${c} (Slot ${s}) — Member ${memberIndex}</span>
+            <strong style="color:var(--gold)">Rs ${Math.round(calculatedPayout).toLocaleString('en-PK')}</strong>
+          </div>`;
+          memberIndex++;
+        }
+      }
+    }
+    document.getElementById('schedulePreview').innerHTML = schedHtml;
+  }
+
+  function resetCalculator() {
+    document.getElementById('calcMembers').value = 10;
+    document.getElementById('calcTotalAmount').value = 100000;
+    document.getElementById('calcWeeklyContribution').value = 1000;
+    document.getElementById('calcPayoutsPerCycle').value = 1;
+    setFrequency('Monthly');
+  }
+
+  /* ─── FAQ Toggle ─────────────────────────────────────────────────────────── */
   function toggleFaq(btn) {
     const item = btn.closest('.faq-item');
     const isOpen = item.classList.toggle('open');
@@ -1413,7 +1444,7 @@
       return;
     }
 
-    /* ── Download panel (in hero download section) ── */
+    /* ── Download panel ── */
     let panelHtml = '';
     if (data.latestRelease && data.latestRelease.downloadUrl) {
       const r = data.latestRelease;
@@ -1436,7 +1467,6 @@
           </div>
         </div>`;
 
-      /* Update nav download button */
       document.getElementById('navDownloadBtn').href = r.downloadUrl;
       document.getElementById('heroDownloadBtn').href = r.downloadUrl;
 
@@ -1451,13 +1481,13 @@
           <div class="release-meta" style="color:rgba(255,255,255,0.6);">${p.message || 'Build in progress.'}</div>
           ${releaseNotesList(p.releaseNotes)}
           <div class="release-actions">
-            <button class="btn-download" disabled aria-disabled="true" aria-label="Download not yet available">
+            <button class="btn-download" disabled aria-disabled="true">
               ⏳ Build in Progress
             </button>
           </div>
         </div>`;
     } else {
-      panelHtml = `<div class="release-card"><div class="release-meta" style="color:rgba(255,255,255,0.6);">No stable release currently published. Check back soon.</div></div>`;
+      panelHtml = `<div class="release-card"><div class="release-meta" style="color:rgba(255,255,255,0.6);">No stable release currently published.</div></div>`;
     }
     panel.innerHTML = panelHtml;
 
@@ -1465,26 +1495,6 @@
     const all = [];
     if (data.latestRelease) all.push({ ...data.latestRelease, isLatest: true });
     (data.previousReleases || []).forEach(r => all.push(r));
-
-    if (all.length === 0 && data.pendingRelease) {
-      const p = data.pendingRelease;
-      historyPanel.innerHTML = `
-        <table class="releases-table">
-          <thead><tr>
-            <th>Version</th><th>Status</th><th>Platform</th><th>Release Date</th><th>Download</th>
-          </tr></thead>
-          <tbody>
-            <tr>
-              <td><strong>v${p.version}</strong></td>
-              <td>${statusBadge(p.status)}</td>
-              <td>Android</td>
-              <td style="color:var(--text-muted);">Pending</td>
-              <td><button class="btn-ghost" disabled aria-disabled="true" style="opacity:0.5;cursor:not-allowed;">Build in Progress</button></td>
-            </tr>
-          </tbody>
-        </table>`;
-      return;
-    }
 
     if (all.length === 0) {
       historyPanel.innerHTML = `<div style="padding:24px;color:var(--text-muted);font-size:14px;">No releases published yet.</div>`;
@@ -1522,6 +1532,7 @@
   }
 
   /* ─── Init ───────────────────────────────────────────────────────────────── */
+  updateCalculator();
   loadReleases();
 </script>
 
