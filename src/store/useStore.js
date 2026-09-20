@@ -8,8 +8,6 @@ export const useStore = create((set, get) => ({
   themePreference: 'system', // 'light' | 'dark' | 'system'
   whatsappConfig: {
     apiUrl: 'https://evolution-api-latest-8rfm.onrender.com',
-    apiKey: 'whatsappAuthenticationApiKey',
-    instanceName: 'rizqly_admin',
     enabled: true,
   },
   
