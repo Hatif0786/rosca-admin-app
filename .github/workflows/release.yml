@@ -1,0 +1,275 @@
+name: Rizqly Production Release
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Trigger: Git tags matching v*.*.* (e.g. v1.0.0, v1.0.1, v1.1.0)
+# Normal development pushes to master do NOT trigger this workflow.
+# ─────────────────────────────────────────────────────────────────────────────
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+jobs:
+  release:
+    name: Build APK → GitHub Release → Update Manifest
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create releases and push commits
+
+    steps:
+      # ─── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # ─── 2. Parse version from tag ────────────────────────────────────────────
+      - name: Parse version from Git tag
+        id: version
+        run: |
+          TAG="${{ github.ref_name }}"
+          VERSION="${TAG#v}"
+          echo "TAG=$TAG" >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "APK_FILENAME=Rizqly-${VERSION}.apk" >> $GITHUB_OUTPUT
+          echo "📦 Releasing version: $VERSION (tag: $TAG)"
+
+      # ─── 3. Validate tag format ───────────────────────────────────────────────
+      - name: Validate version format
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "❌ Invalid version format: $VERSION (expected X.Y.Z)"
+            exit 1
+          fi
+          echo "✅ Version format valid: $VERSION"
+
+      # ─── 4. Check for duplicate release ──────────────────────────────────────
+      - name: Check for duplicate GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.TAG }}"
+          EXISTS=$(gh release list --repo ${{ github.repository }} --json tagName --jq ".[].tagName" | grep -c "^${TAG}$" || true)
+          if [ "$EXISTS" -gt "0" ]; then
+            echo "❌ GitHub Release for tag $TAG already exists. Aborting to prevent duplicate."
+            exit 1
+          fi
+          echo "✅ No existing release for $TAG — safe to proceed"
+
+      # ─── 5. Setup Node.js ─────────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # ─── 6. Install dependencies ──────────────────────────────────────────────
+      - name: Install dependencies
+        run: npm ci
+
+      # ─── 7. Install EAS CLI ───────────────────────────────────────────────────
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      # ─── 8. Trigger EAS APK build ─────────────────────────────────────────────
+      - name: Build APK via EAS (production-apk profile)
+        id: eas_build
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          echo "🔨 Starting EAS APK build for profile: production-apk"
+          BUILD_OUTPUT=$(eas build \
+            --platform android \
+            --profile production-apk \
+            --non-interactive \
+            --json \
+            2>&1)
+          echo "$BUILD_OUTPUT"
+
+          # Extract build ID from JSON output (last JSON object)
+          BUILD_ID=$(echo "$BUILD_OUTPUT" | grep -oP '"id"\s*:\s*"\K[^"]+' | tail -1)
+          if [ -z "$BUILD_ID" ]; then
+            echo "❌ Could not extract build ID from EAS output"
+            exit 1
+          fi
+          echo "BUILD_ID=$BUILD_ID" >> $GITHUB_OUTPUT
+          echo "✅ EAS Build ID: $BUILD_ID"
+
+      # ─── 9. Wait for build and get download URL ───────────────────────────────
+      - name: Get EAS build artifact URL
+        id: eas_artifact
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          BUILD_ID="${{ steps.eas_build.outputs.BUILD_ID }}"
+          echo "⏳ Fetching artifact URL for build $BUILD_ID..."
+
+          ARTIFACT_URL=$(eas build:view "$BUILD_ID" --json | \
+            python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('artifacts',{}).get('buildUrl',''))")
+
+          if [ -z "$ARTIFACT_URL" ]; then
+            echo "❌ Could not retrieve APK artifact URL from EAS"
+            exit 1
+          fi
+          echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_OUTPUT
+          echo "✅ APK artifact URL: $ARTIFACT_URL"
+
+      # ─── 10. Download APK ──────────────────────────────────────────────────────
+      - name: Download APK artifact
+        run: |
+          APK_FILENAME="${{ steps.version.outputs.APK_FILENAME }}"
+          ARTIFACT_URL="${{ steps.eas_artifact.outputs.ARTIFACT_URL }}"
+          echo "📥 Downloading APK: $APK_FILENAME"
+          curl -L -o "$APK_FILENAME" "$ARTIFACT_URL"
+          # Verify the download
+          if [ ! -f "$APK_FILENAME" ]; then
+            echo "❌ APK file not found after download"
+            exit 1
+          fi
+          APK_SIZE=$(du -sh "$APK_FILENAME" | cut -f1)
+          echo "✅ APK downloaded: $APK_FILENAME ($APK_SIZE)"
+          echo "APK_PATH=$APK_FILENAME" >> $GITHUB_ENV
+
+      # ─── 11. Generate release notes ────────────────────────────────────────────
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          cat > release_notes.md << EOF
+          ## Rizqly v${VERSION}
+
+          ### What's in this release
+
+          $(node -e "
+            const fs = require('fs');
+            const releases = JSON.parse(fs.readFileSync('docs/website-blueprint/releases.json', 'utf8'));
+            const notes = releases.pendingRelease?.releaseNotes || ['Initial release.'];
+            notes.forEach(n => console.log('- ' + n));
+          ")
+
+          ### Installation
+
+          1. Download \`Rizqly-${VERSION}.apk\` from the Assets section below.
+          2. On your Android device, open the downloaded file.
+          3. If prompted, allow installation from this source.
+          4. Tap **Install** and then **Open**.
+
+          > **Note:** Android may display a security warning because this APK is installed outside Google Play. This is normal for direct-distribution apps. Rizqly is safe to install.
+
+          ### Requirements
+
+          - Android 8.0 (API 26) or higher recommended
+          - Internet connection for Supabase sync
+
+          ### Support
+
+          Visit [rizqly.app](https://hatif0786.github.io/rosca-admin-app) for documentation and help.
+          EOF
+          echo "✅ Release notes generated"
+
+      # ─── 12. Create GitHub Release and upload APK ──────────────────────────────
+      - name: Create GitHub Release
+        id: create_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          TAG="${{ steps.version.outputs.TAG }}"
+          APK_FILENAME="${{ steps.version.outputs.APK_FILENAME }}"
+
+          echo "🚀 Creating GitHub Release: $TAG"
+
+          RELEASE_URL=$(gh release create "$TAG" \
+            "$APK_FILENAME" \
+            --title "Rizqly v${VERSION}" \
+            --notes-file release_notes.md \
+            --repo ${{ github.repository }} \
+            --verify-tag)
+
+          if [ -z "$RELEASE_URL" ]; then
+            # gh release create may not print URL on some versions, fetch it
+            RELEASE_URL="https://github.com/${{ github.repository }}/releases/tag/${TAG}"
+          fi
+
+          # Get the direct asset download URL
+          DOWNLOAD_URL=$(gh release view "$TAG" \
+            --repo ${{ github.repository }} \
+            --json assets \
+            --jq ".assets[] | select(.name == \"${APK_FILENAME}\") | .url")
+
+          # Fallback: construct standard GitHub releases URL
+          if [ -z "$DOWNLOAD_URL" ]; then
+            DOWNLOAD_URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${APK_FILENAME}"
+          fi
+
+          echo "RELEASE_URL=$RELEASE_URL" >> $GITHUB_OUTPUT
+          echo "DOWNLOAD_URL=$DOWNLOAD_URL" >> $GITHUB_OUTPUT
+          echo "✅ GitHub Release created: $RELEASE_URL"
+          echo "✅ APK download URL: $DOWNLOAD_URL"
+
+      # ─── 13. Verify APK download URL ──────────────────────────────────────────
+      - name: Verify APK download URL is accessible
+        run: |
+          DOWNLOAD_URL="${{ steps.create_release.outputs.DOWNLOAD_URL }}"
+          echo "🔍 Verifying download URL: $DOWNLOAD_URL"
+          HTTP_STATUS=$(curl -o /dev/null -s -w "%{http_code}" -L "$DOWNLOAD_URL")
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "⚠️ Warning: APK URL returned HTTP $HTTP_STATUS. Proceeding anyway (may need time to propagate)."
+          else
+            echo "✅ APK URL verified: HTTP 200"
+          fi
+
+      # ─── 14. Update releases.json ──────────────────────────────────────────────
+      - name: Update release manifest
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          APK_FILENAME="${{ steps.version.outputs.APK_FILENAME }}"
+          BUILD_ID="${{ steps.eas_build.outputs.BUILD_ID }}"
+          DOWNLOAD_URL="${{ steps.create_release.outputs.DOWNLOAD_URL }}"
+          GITHUB_RELEASE_URL="${{ steps.create_release.outputs.RELEASE_URL }}"
+
+          # Get versionCode from EAS build info
+          VERSION_CODE=$(eas build:view "$BUILD_ID" --json | \
+            python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('buildProfile', {}).get('autoIncrement', 1))" \
+            || echo "1")
+
+          echo "📝 Updating releases.json..."
+          node scripts/update-release-manifest.js \
+            --version "$VERSION" \
+            --versionCode "$VERSION_CODE" \
+            --downloadUrl "$DOWNLOAD_URL" \
+            --githubReleaseUrl "$GITHUB_RELEASE_URL" \
+            --buildId "$BUILD_ID" \
+            --apkFilename "$APK_FILENAME"
+
+          # Validate JSON output
+          node -e "JSON.parse(require('fs').readFileSync('docs/website-blueprint/releases.json', 'utf8')); console.log('✅ releases.json JSON is valid')"
+
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      # ─── 15. Commit updated releases.json ─────────────────────────────────────
+      - name: Commit and push releases.json
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git add docs/website-blueprint/releases.json
+          git diff --staged --quiet || git commit -m "chore(release): update release manifest for v${{ steps.version.outputs.VERSION }} [skip ci]"
+          git push origin HEAD:master
+
+          echo "✅ releases.json committed and pushed"
+
+      # ─── 16. Summary ──────────────────────────────────────────────────────────
+      - name: Release summary
+        run: |
+          echo "════════════════════════════════════════"
+          echo "🎉 RIZQLY v${{ steps.version.outputs.VERSION }} RELEASED SUCCESSFULLY"
+          echo "════════════════════════════════════════"
+          echo "  APK:           ${{ steps.version.outputs.APK_FILENAME }}"
+          echo "  Download URL:  ${{ steps.create_release.outputs.DOWNLOAD_URL }}"
+          echo "  Release page:  ${{ steps.create_release.outputs.RELEASE_URL }}"
+          echo "  EAS Build ID:  ${{ steps.eas_build.outputs.BUILD_ID }}"
+          echo "════════════════════════════════════════"
