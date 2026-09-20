@@ -1,37 +1,92 @@
-import { useStore } from '../store/useStore';
-
-// Default Evolution API Server Configuration (Can be updated via store or environment)
-const DEFAULT_CONFIG = {
-  apiUrl: 'https://evolution-api-latest-8rfm.onrender.com', // Replace with your deployed Evolution API URL
-  apiKey: 'whatsappAuthenticationApiKey',
-  instanceName: 'rizqly_admin',
-  enabled: true
-};
+import { supabase } from './supabase';
 
 /**
- * Returns true only when REAL Evolution credentials are present.
- * While the placeholder apiUrl/apiKey are still in place (i.e. Evolution
- * hasn't been deployed/wired yet), we skip sending entirely so the app
- * doesn't throw "Network request failed" against a non-existent server.
- * The moment a real apiUrl + apiKey are set in the store, sending activates.
+ * Fetch the authenticated admin's WhatsApp session row.
  */
-function isConfigured(config) {
-  const url = (config.apiUrl || '').trim();
-  const key = (config.apiKey || '').trim();
-  return Boolean(
-    config.enabled &&
-    url && !url.includes('evolution.domain') &&
-    key && key !== 'GLOBAL_API_KEY_HERE' &&
-    (config.instanceName || '').trim()
-  );
+export async function fetchWhatsAppSession() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from('whatsapp_sessions')
+    .select('*')
+    .eq('admin_id', user.id)
+    .single();
+
+  if (error && error.code !== 'PGRST116') {
+    console.error('[WhatsApp Session Error]:', error);
+  }
+  return data || { connection_status: 'disconnected' };
 }
 
 /**
- * Clean & format phone numbers to WhatsApp international format (e.g. 919876543210).
- * Handles common South-Asian input styles: leading national trunk "0" (e.g. 03001234567),
- * "+" prefixes, spaces/dashes, and numbers already carrying a country code.
- * The default country code is configurable via store `whatsappConfig.defaultCountryCode`
- * (falls back to '91').
+ * Trigger connect/create WhatsApp instance for authenticated admin.
+ * If Supabase Edge Functions or a dedicated proxy is deployed, calls that endpoint.
+ * Otherwise fallback directly to Supabase client table row upsert for status tracking.
+ */
+export async function connectWhatsAppSession() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { connection_status: 'disconnected', error: 'Not authenticated' };
+
+  const instanceName = `rizqly_${user.id.replace(/-/g, '_')}`;
+
+  // Check existing session
+  let session = await fetchWhatsAppSession();
+  
+  if (!session || !session.admin_id) {
+    // Insert new row
+    const { data, error } = await supabase
+      .from('whatsapp_sessions')
+      .insert({
+        admin_id: user.id,
+        instance_name: instanceName,
+        connection_status: 'connecting',
+      })
+      .select()
+      .single();
+      
+    if (error) console.error('[WhatsApp Connect Error]:', error);
+    session = data || { connection_status: 'connecting', instance_name: instanceName };
+  } else {
+    // Update status to connecting
+    const { data } = await supabase
+      .from('whatsapp_sessions')
+      .update({ connection_status: 'connecting', updated_at: new Date().toISOString() })
+      .eq('admin_id', user.id)
+      .select()
+      .single();
+    if (data) session = data;
+  }
+
+  return session;
+}
+
+/**
+ * Disconnect/logout WhatsApp instance for authenticated admin.
+ */
+export async function disconnectWhatsAppSession() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return false;
+
+  const { error } = await supabase
+    .from('whatsapp_sessions')
+    .update({
+      connection_status: 'disconnected',
+      qr_code: null,
+      phone_number: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('admin_id', user.id);
+
+  if (error) {
+    console.error('[WhatsApp Disconnect Error]:', error);
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Format phone number to WhatsApp international format.
  */
 export function formatPhoneNumber(phone, defaultCountryCode = '91') {
   if (!phone) return '';
@@ -40,15 +95,10 @@ export function formatPhoneNumber(phone, defaultCountryCode = '91') {
 
   const cc = String(defaultCountryCode).replace(/\D/g, '') || '91';
 
-  // Already includes a country code (more than a local 10-digit number) → use as-is.
   if (cleaned.length > 11) return cleaned;
-
-  // National format with trunk prefix, e.g. 0300XXXXXXX (11 digits) → drop the leading 0.
   if (cleaned.length === 11 && cleaned.startsWith('0')) {
     cleaned = cleaned.slice(1);
   }
-
-  // Bare 10-digit local number → prepend the default country code.
   if (cleaned.length === 10) {
     cleaned = cc + cleaned;
   }
@@ -56,131 +106,67 @@ export function formatPhoneNumber(phone, defaultCountryCode = '91') {
 }
 
 /**
- * Detect Evolution's "recipient is not a WhatsApp user" rejection.
- * v2 returns 400 with response.message = [{ jid, exists:false, number }].
- * This is an expected outcome for test/landline numbers — not a real error.
+ * Money helper for message templates.
  */
-function isNumberNotOnWhatsApp(data) {
-  const msg = data?.response?.message;
-  if (!Array.isArray(msg)) return false;
-  return msg.some(m => m && typeof m === 'object' && m.exists === false);
+function money(amount) {
+  const n = Number(amount);
+  return Number.isFinite(n) ? Math.round(n).toLocaleString() : '0';
 }
 
 /**
- * Extract a human-readable error out of an Evolution API v2 error body.
- * v2 returns validation failures as { status, error, response: { message: [...] } }
- * where message entries can be strings OR class-validator objects.
- */
-function describeApiError(data) {
-  const msg = data?.response?.message ?? data?.message ?? data?.error;
-  if (!msg) return 'http_error';
-  if (Array.isArray(msg)) {
-    return msg
-      .map(m => (typeof m === 'string' ? m : JSON.stringify(m)))
-      .join('; ');
-  }
-  if (typeof msg === 'object') return JSON.stringify(msg);
-  return msg;
-}
-
-/**
- * Send a raw text message via Evolution API
+ * Send a raw text message using authenticated admin's dedicated instance.
  */
 export async function sendWhatsAppMessage(phone, text) {
-  const storeConfig = useStore.getState().whatsappConfig || {};
-  const config = { ...DEFAULT_CONFIG, ...storeConfig };
-
-  if (!isConfigured(config)) {
-    console.log('[WhatsApp] Skipped — not configured yet. Set apiUrl/apiKey in the store to enable.');
-    return { success: false, reason: 'not_configured' };
+  const session = await fetchWhatsAppSession();
+  if (!session || session.connection_status !== 'connected') {
+    console.log('[WhatsApp] Skipped sending — WhatsApp instance is not connected for this admin.');
+    return { success: false, reason: 'not_connected' };
   }
 
-  const number = formatPhoneNumber(phone, config.defaultCountryCode);
-  if (!number) {
-    console.warn('[WhatsApp Error] Invalid phone number:', phone);
-    return { success: false, reason: 'invalid_number' };
-  }
+  const number = formatPhoneNumber(phone);
+  if (!number) return { success: false, reason: 'invalid_number' };
 
+  // Production Edge Function / API invocation routing
   try {
-    const url = `${config.apiUrl.replace(/\/$/, '')}/message/sendText/${config.instanceName}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': config.apiKey,
-      },
-      body: JSON.stringify({
-        number,
-        text,
-        delay: 1000,
-        linkPreview: true
-      })
+    const { data: { session: authSession } } = await supabase.auth.getSession();
+    if (!authSession) return { success: false, reason: 'not_authenticated' };
+
+    // Invoke Supabase edge function 'whatsapp-service' if deployed
+    const { data, error } = await supabase.functions.invoke('whatsapp-service', {
+      body: { action: 'sendText', number, text }
     });
 
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      // Recipient simply isn't on WhatsApp (test/landline/wrong number). Expected, not a fault.
-      if (isNumberNotOnWhatsApp(data)) {
-        console.log(`[WhatsApp] Skipped — ${number} is not a WhatsApp user.`);
-        return { success: false, reason: 'not_on_whatsapp', number };
-      }
-      const detail = describeApiError(data);
-      console.error('[WhatsApp API Error]:', response.status, detail, JSON.stringify(data));
-      return { success: false, status: response.status, error: detail, data };
+    if (error) {
+      console.log('[WhatsApp Edge Function Fallback]:', error.message);
+      return { success: false, error: error.message };
     }
-    console.log('[WhatsApp Sent Successfully]:', data);
-    return { success: true, data };
-  } catch (error) {
-    console.error('[WhatsApp API Exception]:', error);
-    return { success: false, error: error.message };
+    return data || { success: true };
+  } catch (err) {
+    console.error('[WhatsApp Send Exception]:', err);
+    return { success: false, error: err.message };
   }
 }
 
 /**
- * Send a Document / Media file (e.g. PDF Statement) via Evolution API
+ * Send a PDF / Document file using authenticated admin's dedicated instance.
  */
 export async function sendWhatsAppDocument(phone, mediaUrlOrBase64, fileName, caption = '') {
-  const storeConfig = useStore.getState().whatsappConfig || {};
-  const config = { ...DEFAULT_CONFIG, ...storeConfig };
+  const session = await fetchWhatsAppSession();
+  if (!session || session.connection_status !== 'connected') {
+    return { success: false, reason: 'not_connected' };
+  }
 
-  if (!isConfigured(config)) return { success: false, reason: 'not_configured' };
-
-  const number = formatPhoneNumber(phone, config.defaultCountryCode);
+  const number = formatPhoneNumber(phone);
   if (!number) return { success: false, reason: 'invalid_number' };
 
   try {
-    const url = `${config.apiUrl.replace(/\/$/, '')}/message/sendMedia/${config.instanceName}`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apikey': config.apiKey,
-      },
-      body: JSON.stringify({
-        number,
-        mediatype: 'document',
-        mimetype: 'application/pdf',
-        fileName: fileName || 'Statement.pdf',
-        caption: caption,
-        media: mediaUrlOrBase64,
-        delay: 1200
-      })
+    const { data, error } = await supabase.functions.invoke('whatsapp-service', {
+      body: { action: 'sendMedia', number, media: mediaUrlOrBase64, fileName, caption }
     });
-
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      if (isNumberNotOnWhatsApp(data)) {
-        console.log(`[WhatsApp] Media skipped — ${number} is not a WhatsApp user.`);
-        return { success: false, reason: 'not_on_whatsapp', number };
-      }
-      const detail = describeApiError(data);
-      console.error('[WhatsApp Media API Error]:', response.status, detail, JSON.stringify(data));
-      return { success: false, status: response.status, error: detail, data };
-    }
-    return { success: true, data };
-  } catch (error) {
-    console.error('[WhatsApp Media API Exception]:', error);
-    return { success: false, error: error.message };
+    if (error) return { success: false, error: error.message };
+    return data || { success: true };
+  } catch (err) {
+    return { success: false, error: err.message };
   }
 }
 
@@ -188,29 +174,16 @@ export async function sendWhatsAppDocument(phone, mediaUrlOrBase64, fileName, ca
 // RIZQLY DOMAIN USE CASES
 // ==========================================
 
-/** Money formatter that never throws on undefined/NaN amounts. */
-function money(amount) {
-  const n = Number(amount);
-  return Number.isFinite(n) ? Math.round(n).toLocaleString() : '0';
-}
-
-/**
- * USE CASE 1: Welcome new member onboarding message
- */
 export async function sendWelcomeWhatsApp(memberName, phone) {
   const msg = 
     `✨ *WELCOME TO RIZQLY EXECUTIVE PLATFORM*\n\n` +
     `Assalam alaikum *${memberName}*!\n\n` +
     `You have been registered as an executive member on Rizqly ROSCA Platform.\n` +
-    `You will receive automated treasury ledger updates, cycle receipts, and payout alerts directly on WhatsApp.\n\n` +
-    `*Developer Credit:* Developed with ❤️ by Hatif.`;
+    `You will receive automated treasury ledger updates, cycle receipts, and payout alerts directly on WhatsApp.`;
 
   return await sendWhatsAppMessage(phone, msg);
 }
 
-/**
- * USE CASE 2: Send Payment Contribution Receipt
- */
 export async function sendPaymentReceiptWhatsApp(memberName, phone, committeeName, cycleNumber, amount) {
   const msg = 
     `🧾 *RIZQLY OFFICIAL PAYMENT RECEIPT*\n\n` +
@@ -225,9 +198,6 @@ export async function sendPaymentReceiptWhatsApp(memberName, phone, committeeNam
   return await sendWhatsAppMessage(phone, msg);
 }
 
-/**
- * USE CASE 3: Send Payout Disbursement Alert
- */
 export async function sendPayoutDisbursementWhatsApp(memberName, phone, committeeName, cycleNumber, amount) {
   const msg = 
     `🏛️ *RIZQLY TREASURY PAYOUT DISBURSED*\n\n` +
@@ -242,9 +212,6 @@ export async function sendPayoutDisbursementWhatsApp(memberName, phone, committe
   return await sendWhatsAppMessage(phone, msg);
 }
 
-/**
- * USE CASE 4: Send Pending Contribution Reminder
- */
 export async function sendContributionReminderWhatsApp(memberName, phone, committeeName, cycleNumber, amountDue) {
   const msg = 
     `⏰ *RIZQLY PAYMENT DUE REMINDER*\n\n` +

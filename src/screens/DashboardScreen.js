@@ -324,6 +324,19 @@ export default function DashboardScreen({ navigation }) {
                   </View>
                   <Icon name="chevron-right" size={24} color="#ccc" />
                 </TouchableOpacity>
+
+                <View style={[styles.hDivider, { backgroundColor: theme.colors.outline }]} />
+
+                <TouchableOpacity style={styles.toolRow} onPress={() => navigation.navigate('WhatsAppSettings')}>
+                  <View style={[styles.toolIconBox, { backgroundColor: '#FEF3C7' }]}>
+                    <Icon name="whatsapp" size={22} color="#92400E" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.toolTitle, { color: theme.colors.onSurface }]}>WhatsApp Integration</Text>
+                    <Text style={styles.toolHint}>Connect QR code & dedicated WhatsApp instance</Text>
+                  </View>
+                  <Icon name="chevron-right" size={24} color="#ccc" />
+                </TouchableOpacity>
               </Surface>
             </View>
           )}

@@ -21,6 +21,7 @@ import MembersScreen from './src/screens/MembersScreen';
 import AddMemberScreen from './src/screens/AddMemberScreen';
 import AuthScreen from './src/screens/AuthScreen';
 import TransactionsScreen from './src/screens/TransactionsScreen';
+import WhatsAppSettingsScreen from './src/screens/WhatsAppSettingsScreen';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -195,7 +196,14 @@ function AppNavigator({ session, theme, isDark }) {
       tabBarInactiveTintColor: isDark ? '#666' : '#999',
       tabBarLabelStyle: { fontWeight: 'bold', fontSize: 11 },
     })}>
-      <Tab.Screen name="Dashboard" component={DashboardScreen} options={{ headerShown: false, tabBarIcon: ({ color, size }) => <Icon name="view-dashboard-outline" color={color} size={size} /> }} />
+      <Tab.Screen name="Dashboard" options={{ headerShown: false, tabBarIcon: ({ color, size }) => <Icon name="view-dashboard-outline" color={color} size={size} /> }}>
+        {() => (
+          <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: theme.colors.surface }, headerTintColor: theme.colors.primary, headerTitleStyle: { fontFamily: 'serif', fontWeight: 'bold' } }}>
+            <Stack.Screen name="DashboardMain" component={DashboardScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="WhatsAppSettings" component={WhatsAppSettingsScreen} options={{ title: 'WhatsApp Settings' }} />
+          </Stack.Navigator>
+        )}
+      </Tab.Screen>
       <Tab.Screen name="Members" options={{ headerShown: false, tabBarIcon: ({ color, size }) => <Icon name="account-multiple-outline" color={color} size={size} /> }}>
         {(props) => <MemberStack {...props} theme={theme} />}
       </Tab.Screen>
