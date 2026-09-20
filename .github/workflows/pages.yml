@@ -1,0 +1,59 @@
+name: Deploy Website to GitHub Pages
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'docs/website-blueprint/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to GitHub Pages
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify website content exists
+        run: |
+          if [ ! -d "docs/website-blueprint" ]; then
+            echo "❌ Directory docs/website-blueprint does not exist!"
+            exit 1
+          fi
+          if [ ! -f "docs/website-blueprint/index.html" ]; then
+            echo "❌ File docs/website-blueprint/index.html does not exist!"
+            exit 1
+          fi
+          if [ ! -f "docs/website-blueprint/releases.json" ]; then
+            echo "❌ File docs/website-blueprint/releases.json does not exist!"
+            exit 1
+          fi
+          echo "✅ Website directory and key files verified"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/website-blueprint
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
