@@ -137,7 +137,7 @@ export async function getWhatsAppPairingCode(phone) {
     clearTimeout(timeoutId);
 
     if (error) {
-      console.error('[WhatsApp Pairing Code Edge Function Error]:', error.message);
+      console.warn('[WhatsApp Pairing Code Edge Function Error]:', error.message);
       let detailMsg = error.message;
       try {
         if (error.context && typeof error.context.json === 'function') {

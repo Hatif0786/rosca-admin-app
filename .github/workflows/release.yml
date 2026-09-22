@@ -73,45 +73,101 @@ jobs:
       - name: Install EAS CLI
         run: npm install -g eas-cli
 
-      # ─── 8. Trigger EAS APK build ─────────────────────────────────────────────
+      # ─── 8. Build APK via EAS (synchronous — waits for completion) ─────────────
       - name: Build APK via EAS (production-apk profile)
         id: eas_build
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
-          echo "🔨 Starting EAS APK build for profile: production-apk"
-          eas build \
+          echo "🔨 Starting EAS APK build for profile: production-apk (synchronous)"
+
+          # Build synchronously (no --no-wait). EAS CLI waits for the build to
+          # finish and prints a JSON summary we can parse for the artifact URL.
+          BUILD_OUTPUT=$(eas build \
             --platform android \
             --profile production-apk \
             --non-interactive \
-            --no-wait
+            --json \
+            2>&1)
 
-          echo "⏳ Fetching latest completed production-apk build..."
-          BUILD_JSON=$(eas build:list --platform android --profile production-apk --limit 1 --json 2>&1)
-          echo "$BUILD_JSON"
+          echo "--- EAS Build Output ---"
+          echo "$BUILD_OUTPUT"
+          echo "--- End EAS Build Output ---"
 
-          BUILD_ID=$(echo "$BUILD_JSON" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d[0]['id'] if d else '')")
-          echo "BUILD_ID=$BUILD_ID" >> $GITHUB_OUTPUT
-          echo "✅ EAS Build ID: $BUILD_ID"
+          # Parse build ID and artifact URL from JSON output
+          BUILD_ID=$(echo "$BUILD_OUTPUT" | python3 -c "
+import sys, json
+lines = sys.stdin.read()
+# Find the JSON array/object in the output
+for line in lines.splitlines():
+    line = line.strip()
+    if line.startswith('[') or line.startswith('{'):
+        try:
+            d = json.loads(line)
+            if isinstance(d, list): d = d[0]
+            print(d.get('id',''))
+            break
+        except: pass
+" 2>/dev/null || echo '')
 
-      # ─── 9. Wait for build and get download URL ───────────────────────────────
-      - name: Get EAS build artifact URL
-        id: eas_artifact
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: |
-          BUILD_ID="${{ steps.eas_build.outputs.BUILD_ID }}"
-          echo "⏳ Fetching artifact URL for build $BUILD_ID..."
+          ARTIFACT_URL=$(echo "$BUILD_OUTPUT" | python3 -c "
+import sys, json
+lines = sys.stdin.read()
+for line in lines.splitlines():
+    line = line.strip()
+    if line.startswith('[') or line.startswith('{'):
+        try:
+            d = json.loads(line)
+            if isinstance(d, list): d = d[0]
+            artifacts = d.get('artifacts', {})
+            url = artifacts.get('buildUrl', '') or artifacts.get('applicationArchiveUrl', '')
+            print(url)
+            break
+        except: pass
+" 2>/dev/null || echo '')
 
-          ARTIFACT_URL=$(eas build:view "$BUILD_ID" --json | \
-            python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('artifacts',{}).get('buildUrl',''))")
+          # Fallback: use eas build:list to get the most recent completed build
+          if [ -z "$ARTIFACT_URL" ] || [ -z "$BUILD_ID" ]; then
+            echo "⏳ JSON parse incomplete — querying eas build:list for latest build..."
+            LATEST=$(eas build:list \
+              --platform android \
+              --profile production-apk \
+              --status finished \
+              --limit 1 \
+              --json 2>/dev/null || echo '[]')
+            BUILD_ID=$(echo "$LATEST" | python3 -c "
+import sys,json; d=json.load(sys.stdin); print(d[0]['id'] if d else '')
+" 2>/dev/null || echo '')
+            ARTIFACT_URL=$(echo "$LATEST" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+if d:
+    a=d[0].get('artifacts',{})
+    print(a.get('buildUrl','') or a.get('applicationArchiveUrl',''))
+" 2>/dev/null || echo '')
+          fi
 
+          if [ -z "$BUILD_ID" ]; then
+            echo "❌ Could not determine EAS Build ID"
+            exit 1
+          fi
           if [ -z "$ARTIFACT_URL" ]; then
             echo "❌ Could not retrieve APK artifact URL from EAS"
             exit 1
           fi
+
+          echo "BUILD_ID=$BUILD_ID" >> $GITHUB_OUTPUT
           echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_OUTPUT
+          echo "✅ EAS Build ID: $BUILD_ID"
           echo "✅ APK artifact URL: $ARTIFACT_URL"
+
+      # ─── 9. (Artifact URL already captured in step 8) ────────────────────────
+      - name: Confirm EAS artifact URL
+        id: eas_artifact
+        run: |
+          ARTIFACT_URL="${{ steps.eas_build.outputs.ARTIFACT_URL }}"
+          echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_OUTPUT
+          echo "✅ Using artifact URL: $ARTIFACT_URL"
 
       # ─── 10. Download APK ──────────────────────────────────────────────────────
       - name: Download APK artifact
@@ -227,10 +283,9 @@ jobs:
           DOWNLOAD_URL="${{ steps.create_release.outputs.DOWNLOAD_URL }}"
           GITHUB_RELEASE_URL="${{ steps.create_release.outputs.RELEASE_URL }}"
 
-          # Get versionCode from EAS build info
-          VERSION_CODE=$(eas build:view "$BUILD_ID" --json | \
-            python3 -c "import sys, json; d=json.load(sys.stdin); print(d.get('buildProfile', {}).get('autoIncrement', 1))" \
-            || echo "1")
+          # versionCode is auto-managed by EAS (appVersionSource: remote)
+          # We pass 0 as a sentinel; the update-release-manifest script uses it only for display
+          VERSION_CODE=0
 
           echo "📝 Updating releases.json..."
           node scripts/update-release-manifest.js \
@@ -243,9 +298,6 @@ jobs:
 
           # Validate JSON output
           node -e "JSON.parse(require('fs').readFileSync('docs/website-blueprint/releases.json', 'utf8')); console.log('✅ releases.json JSON is valid')"
-
-        env:
-          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
 
       # ─── 15. Commit updated releases.json ─────────────────────────────────────
       - name: Commit and push releases.json
