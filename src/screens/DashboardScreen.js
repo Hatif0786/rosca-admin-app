@@ -77,12 +77,14 @@ export default function DashboardScreen({ navigation }) {
 
       // In-app update check against production releases manifest
       try {
-        const resp = await fetch('https://hatif0786.github.io/rosca-admin-app/website-blueprint/releases.json');
+        const Constants = require('expo-constants').default || require('expo-constants');
+        const currentVersion = Constants.expoConfig?.version || Constants.manifest?.version || '1.0.0';
+        const resp = await fetch('https://hatif0786.github.io/rosca-admin-app/releases.json');
         if (resp.ok) {
           const manifest = await resp.json();
           const latest = manifest?.latestRelease;
-          if (latest && latest.version && latest.version !== '1.0.1') {
-            const currentParts = '1.0.1'.split('.').map(Number);
+          if (latest && latest.version && latest.version !== currentVersion) {
+            const currentParts = currentVersion.split('.').map(Number);
             const latestParts = latest.version.split('.').map(Number);
             const isNewer = latestParts[0] > currentParts[0] || 
               (latestParts[0] === currentParts[0] && latestParts[1] > currentParts[1]) ||
