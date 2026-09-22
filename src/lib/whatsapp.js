@@ -30,35 +30,145 @@ export async function connectWhatsAppSession() {
 
   const instanceName = `rizqly_${user.id.replace(/-/g, '_')}`;
 
-  // Check existing session
-  let session = await fetchWhatsAppSession();
-  
-  if (!session || !session.admin_id) {
-    // Insert new row
-    const { data, error } = await supabase
-      .from('whatsapp_sessions')
-      .insert({
-        admin_id: user.id,
-        instance_name: instanceName,
-        connection_status: 'connecting',
-      })
-      .select()
-      .single();
-      
-    if (error) console.error('[WhatsApp Connect Error]:', error);
-    session = data || { connection_status: 'connecting', instance_name: instanceName };
-  } else {
-    // Update status to connecting
-    const { data } = await supabase
-      .from('whatsapp_sessions')
-      .update({ connection_status: 'connecting', updated_at: new Date().toISOString() })
-      .eq('admin_id', user.id)
-      .select()
-      .single();
-    if (data) session = data;
-  }
+  try {
+    // 15-second timeout controller specifically for Edge Function invocation
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-  return session;
+    const { data, error } = await supabase.functions.invoke('whatsapp-service', {
+      body: { action: 'connect' },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (error) {
+      console.error('[WhatsApp Connect Edge Function Error]:', error.message);
+      // Fallback query to fetch existing session if edge function had an issue
+      const session = await fetchWhatsAppSession();
+      return session?.qr_code
+        ? session
+        : { connection_status: 'disconnected', error: error.message };
+    }
+
+    if (data && data.success) {
+      return {
+        admin_id: user.id,
+        instance_name: data.instanceName || instanceName,
+        connection_status: data.connection_status || 'connecting',
+        qr_code: data.qr_code || null,
+      };
+    }
+
+    const currentSession = await fetchWhatsAppSession();
+    return currentSession || { connection_status: 'disconnected', error: 'Failed to generate QR code' };
+  } catch (err) {
+    console.error('[WhatsApp Connect Exception]:', err.message || err);
+    const fallbackSession = await fetchWhatsAppSession();
+    return fallbackSession?.qr_code
+      ? fallbackSession
+      : { connection_status: 'disconnected', error: err.name === 'AbortError' ? 'Connection timed out' : err.message };
+  }
+}
+
+/**
+ * Check the connection status of the authenticated admin's WhatsApp instance.
+ * Calls Edge Function with { action: 'getState' }.
+ */
+export async function checkWhatsAppStatus() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { connection_status: 'disconnected', error: 'Not authenticated' };
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const { data, error } = await supabase.functions.invoke('whatsapp-service', {
+      body: { action: 'getState' },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (error) {
+      console.error('[WhatsApp Status Edge Function Error]:', error.message);
+      const session = await fetchWhatsAppSession();
+      return session || { connection_status: 'disconnected', error: error.message };
+    }
+
+    // Always refresh latest session from database after status check
+    const session = await fetchWhatsAppSession();
+    if (data && data.success && data.state) {
+      const normalizedStatus = (data.state === 'open' || data.state === 'connected') ? 'connected' : session?.connection_status || 'disconnected';
+      return {
+        ...session,
+        connection_status: normalizedStatus,
+      };
+    }
+
+    return session || { connection_status: 'disconnected' };
+  } catch (err) {
+    console.error('[WhatsApp Check Status Exception]:', err.message || err);
+    const fallbackSession = await fetchWhatsAppSession();
+    return fallbackSession || { connection_status: 'disconnected', error: err.name === 'AbortError' ? 'Status check timed out' : err.message };
+  }
+}
+
+/**
+ * Generate a WhatsApp pairing code for the authenticated admin's WhatsApp instance.
+ * Calls Edge Function with { action: 'getPairingCode', number }.
+ */
+export async function getWhatsAppPairingCode(phone) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { success: false, error: 'Not authenticated' };
+
+  const formattedNumber = formatPhoneNumber(phone);
+  if (!formattedNumber) return { success: false, error: 'Invalid phone number format. Please enter a valid number with country code.' };
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    const { data, error } = await supabase.functions.invoke('whatsapp-service', {
+      body: { action: 'getPairingCode', number: formattedNumber },
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (error) {
+      console.error('[WhatsApp Pairing Code Edge Function Error]:', error.message);
+      let detailMsg = error.message;
+      try {
+        if (error.context && typeof error.context.json === 'function') {
+          const errBody = await error.context.json();
+          if (errBody && errBody.error) {
+            detailMsg = errBody.error;
+          }
+        }
+      } catch (_) {}
+      return { success: false, error: detailMsg };
+    }
+
+    if (data && data.success && data.pairingCode) {
+      return {
+        success: true,
+        pairingCode: data.pairingCode,
+        instanceName: data.instanceName,
+      };
+    }
+
+    return {
+      success: false,
+      error: data?.error || 'Failed to generate pairing code. Please try again.',
+    };
+  } catch (err) {
+    console.error('[WhatsApp Pairing Code Exception]:', err.message || err);
+    return {
+      success: false,
+      error: err.name === 'AbortError' ? 'Pairing code request timed out' : err.message,
+    };
+  }
 }
 
 /**

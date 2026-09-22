@@ -98,6 +98,66 @@ serve(async (req) => {
       });
     }
 
+    if (action === 'getPairingCode') {
+      if (!number) {
+        return new Response(JSON.stringify({ success: false, error: 'Phone number is required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 1. Ensure instance exists
+      await fetch(`${EVOLUTION_API_URL}/instance/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': EVOLUTION_API_KEY ?? '',
+        },
+        body: JSON.stringify({
+          instanceName,
+          qrcode: false,
+          integration: 'WHATSAPP-BAILEYS',
+          webhook: {
+            enabled: true,
+            url: `${supabaseUrl}/functions/v1/whatsapp-webhook`,
+            byEvents: false,
+            base64: true,
+            events: ['QRCODE_UPDATED', 'CONNECTION_UPDATE']
+          }
+        }),
+      }).catch(() => {});
+
+      // 2. Call connect endpoint with number parameter for pairing code
+      const connResp = await fetch(`${EVOLUTION_API_URL}/instance/connect/${instanceName}?number=${number}`, {
+        headers: { 'apikey': EVOLUTION_API_KEY ?? '' }
+      });
+      const connData = await connResp.json().catch(() => ({}));
+
+      const pairingCode = connData.pairingCode || connData.code || connData.pairing_code || null;
+
+      if (!connResp.ok || !pairingCode) {
+        const errMsg = connData.response?.message || connData.error || 'Failed to generate pairing code from Evolution API';
+        return new Response(JSON.stringify({ success: false, error: Array.isArray(errMsg) ? errMsg.join(', ') : errMsg }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const upsertData = {
+        admin_id: adminId,
+        instance_name: instanceName,
+        connection_status: 'connecting',
+        phone_number: number,
+        updated_at: new Date().toISOString(),
+      };
+
+      await supabase.from('whatsapp_sessions').upsert(upsertData);
+
+      return new Response(JSON.stringify({ success: true, instanceName, pairingCode, connection_status: 'connecting' }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (action === 'getState') {
       const stateResp = await fetch(`${EVOLUTION_API_URL}/instance/connectionState/${instanceName}`, {
         headers: { 'apikey': EVOLUTION_API_KEY ?? '' }

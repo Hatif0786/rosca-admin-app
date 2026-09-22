@@ -1,7 +1,7 @@
 {
   "type": "commonjs",
   "name": "rosca-admin-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "index.js",
   "scripts": {
     "start": "expo start",
@@ -47,7 +47,9 @@
     "@babel/plugin-transform-classes": "^7.29.7",
     "@babel/plugin-transform-private-methods": "^7.29.7",
     "@babel/plugin-transform-private-property-in-object": "^7.29.7",
+    "@types/react": "~19.1.10",
     "babel-preset-expo": "~54.0.10",
-    "patch-package": "^8.0.1"
+    "patch-package": "^8.0.1",
+    "typescript": "~5.9.2"
   }
 }

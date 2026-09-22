@@ -348,7 +348,7 @@ export default function DashboardScreen({ navigation }) {
 
           <View style={styles.copyrightRow}>
             <Text style={styles.copyrightText}>© 2026 RIZQLY • DEVELOPED BY HATIF</Text>
-            <Text style={styles.copyrightSub}>ALL RIGHTS RESERVED • VERSION 1.0.0</Text>
+            <Text style={styles.copyrightSub}>ALL RIGHTS RESERVED • VERSION 1.0.1</Text>
           </View>
         </View>
       </Animated.ScrollView>
