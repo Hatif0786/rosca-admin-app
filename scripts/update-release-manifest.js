@@ -34,7 +34,8 @@ function getArg(name) {
   return args[idx + 1] ?? null;
 }
 
-const isTest = args.includes('--test');
+const isTest  = args.includes('--test');
+const isForce = args.includes('--force');
 
 // ─── Test mode ─────────────────────────────────────────────────────────────────
 if (isTest) {
@@ -111,8 +112,13 @@ try {
 
 // ─── Check for duplicate releases ─────────────────────────────────────────────
 if (data.latestRelease && data.latestRelease.version === version) {
-  console.error(`❌ Release v${version} already exists as latestRelease. Refusing to overwrite.`);
-  process.exit(1);
+  if (isForce) {
+    console.log(`⚠️  --force: overwriting existing latestRelease v${version} with fresh build data.`);
+  } else {
+    console.error(`❌ Release v${version} already exists as latestRelease. Refusing to overwrite.`);
+    console.error('   Pass --force to overwrite (e.g. re-running the same tag with a new build).');
+    process.exit(1);
+  }
 }
 
 const dupInHistory = (data.previousReleases || []).find(r => r.version === version);

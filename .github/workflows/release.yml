@@ -261,7 +261,8 @@ jobs:
             --downloadUrl "$DOWNLOAD_URL" \
             --githubReleaseUrl "$GITHUB_RELEASE_URL" \
             --buildId "$BUILD_ID" \
-            --apkFilename "$APK_FILENAME"
+            --apkFilename "$APK_FILENAME" \
+            --force
 
           # Validate JSON output
           node -e "JSON.parse(require('fs').readFileSync('docs/website-blueprint/releases.json', 'utf8')); console.log('✅ releases.json JSON is valid')"
