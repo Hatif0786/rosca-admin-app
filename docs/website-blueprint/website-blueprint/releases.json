@@ -1,0 +1,67 @@
+{
+  "latestRelease": {
+    "version": "1.0.1",
+    "versionCode": 0,
+    "platform": "android",
+    "status": "STABLE",
+    "downloadUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/download/v1.0.1/Rizqly-1.0.1.apk",
+    "buildId": "d96978b6-788a-4c06-80e9-77683f1b8f8f",
+    "githubReleaseUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/tag/v1.0.1",
+    "apkFilename": "Rizqly-1.0.1.apk",
+    "releaseDate": "2026-09-22",
+    "minimumSupportedVersion": "1.0.0",
+    "releaseNotes": [
+      "WhatsApp QR Code connection — Scan a QR code from another device to link WhatsApp.",
+      "WhatsApp Pairing Code connection — Link using a phone number pairing code on the same device.",
+      "Session status monitoring — Bounded polling with auto-recovery for WhatsApp sessions.",
+      "In-app update notifications — Automatic alert when a new stable version is available.",
+      "General stability improvements and Edge Function integration fixes."
+    ]
+  },
+  "pendingRelease": null,
+  "previousReleases": [
+    {
+      "version": "1.0.1",
+      "versionCode": 5,
+      "platform": "android",
+      "status": "SUPERSEDED",
+      "downloadUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/download/v1.0.1/Rizqly-1.0.1.apk",
+      "buildId": "d96978b6-788a-4c06-80e9-77683f1b8f8f",
+      "githubReleaseUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/tag/v1.0.1",
+      "apkFilename": "Rizqly-1.0.1.apk",
+      "releaseDate": "2026-09-22",
+      "minimumSupportedVersion": "1.0.0",
+      "releaseNotes": [
+        "WhatsApp Multi-Tenancy & QR Connection Fix — Resolved indefinite spinner during session initialization.",
+        "Dual WhatsApp Pairing Support — Choose between Phone Number Pairing Code or QR Code scanning.",
+        "Session Status Monitoring — Bounded status polling and auto-recovery for WhatsApp session states.",
+        "General stability improvements and Edge Function integration fixes."
+      ]
+    },
+    {
+      "version": "1.0.0",
+      "versionCode": 1,
+      "platform": "android",
+      "status": "SUPERSEDED",
+      "downloadUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/download/v1.0.0/application-687fcf41-82bb-453f-9df3-df26c3dbe7c2.apk",
+      "buildId": "687fcf41-82bb-453f-9df3-df26c3dbe7c2",
+      "githubReleaseUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/tag/v1.0.0",
+      "releaseDate": "2026-09-20",
+      "apkFilename": "application-687fcf41-82bb-453f-9df3-df26c3dbe7c2.apk",
+      "minimumSupportedVersion": "1.0.0",
+      "releaseNotes": [
+        "Initial stable release of Rizqly.",
+        "ROSCA cycle management — weekly, monthly, or custom contribution schedules.",
+        "Full member registry with phone number tracking.",
+        "Committee creation and complete lifecycle management.",
+        "Contribution tracking per cycle with payment status.",
+        "Payout management with cycle and date recording.",
+        "Executive Bait-ul-Maal treasury dashboard.",
+        "Branded PDF financial statements with one-tap sharing.",
+        "Local JSON backup and restore.",
+        "Dark / Light / System theme support.",
+        "Optional WhatsApp receipt notifications via Evolution API."
+      ]
+    }
+  ]
+}
