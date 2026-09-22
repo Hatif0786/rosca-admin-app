@@ -74,6 +74,38 @@ export default function DashboardScreen({ navigation }) {
       }
       setLoading(false);
       Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+
+      // In-app update check against production releases manifest
+      try {
+        const resp = await fetch('https://hatif0786.github.io/rosca-admin-app/website-blueprint/releases.json');
+        if (resp.ok) {
+          const manifest = await resp.json();
+          const latest = manifest?.latestRelease;
+          if (latest && latest.version && latest.version !== '1.0.1') {
+            const currentParts = '1.0.1'.split('.').map(Number);
+            const latestParts = latest.version.split('.').map(Number);
+            const isNewer = latestParts[0] > currentParts[0] || 
+              (latestParts[0] === currentParts[0] && latestParts[1] > currentParts[1]) ||
+              (latestParts[0] === currentParts[0] && latestParts[1] === currentParts[1] && latestParts[2] > currentParts[2]);
+
+            if (isNewer) {
+              const downloadUrl = latest.downloadUrl || 'https://hatif0786.github.io/rosca-admin-app/';
+              const notes = (latest.releaseNotes || []).join('\n• ');
+              const { Alert, Linking } = require('react-native');
+              Alert.alert(
+                `🚀 New Update Available (v${latest.version})`,
+                `A new stable version of Rizqly is ready!\n\n${notes ? '• ' + notes + '\n\n' : ''}Would you like to download the update now?`,
+                [
+                  { text: 'Later', style: 'cancel' },
+                  { text: 'Update Now', onPress: () => Linking.openURL(downloadUrl) }
+                ]
+              );
+            }
+          }
+        }
+      } catch (err) {
+        console.log('[Update Check Skipped]:', err.message);
+      }
     };
     loadData();
   }, []);

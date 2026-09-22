@@ -80,20 +80,17 @@ jobs:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
         run: |
           echo "🔨 Starting EAS APK build for profile: production-apk"
-          BUILD_OUTPUT=$(eas build \
+          eas build \
             --platform android \
             --profile production-apk \
             --non-interactive \
-            --json \
-            2>&1)
-          echo "$BUILD_OUTPUT"
+            --no-wait
 
-          # Extract build ID from JSON output (last JSON object)
-          BUILD_ID=$(echo "$BUILD_OUTPUT" | grep -oP '"id"\s*:\s*"\K[^"]+' | tail -1)
-          if [ -z "$BUILD_ID" ]; then
-            echo "❌ Could not extract build ID from EAS output"
-            exit 1
-          fi
+          echo "⏳ Fetching latest completed production-apk build..."
+          BUILD_JSON=$(eas build:list --platform android --profile production-apk --limit 1 --json 2>&1)
+          echo "$BUILD_JSON"
+
+          BUILD_ID=$(echo "$BUILD_JSON" | python3 -c "import sys, json; d=json.load(sys.stdin); print(d[0]['id'] if d else '')")
           echo "BUILD_ID=$BUILD_ID" >> $GITHUB_OUTPUT
           echo "✅ EAS Build ID: $BUILD_ID"
 
