@@ -82,7 +82,7 @@ jobs:
           echo "🔨 Starting EAS APK build for profile: production-apk (synchronous)"
 
           # Build synchronously (no --no-wait). EAS CLI waits for the build to
-          # finish and prints a JSON summary we can parse for the artifact URL.
+          # finish and outputs a JSON summary on stdout (with --json flag).
           BUILD_OUTPUT=$(eas build \
             --platform android \
             --profile production-apk \
@@ -94,39 +94,13 @@ jobs:
           echo "$BUILD_OUTPUT"
           echo "--- End EAS Build Output ---"
 
-          # Parse build ID and artifact URL from JSON output
-          BUILD_ID=$(echo "$BUILD_OUTPUT" | python3 -c "
-import sys, json
-lines = sys.stdin.read()
-# Find the JSON array/object in the output
-for line in lines.splitlines():
-    line = line.strip()
-    if line.startswith('[') or line.startswith('{'):
-        try:
-            d = json.loads(line)
-            if isinstance(d, list): d = d[0]
-            print(d.get('id',''))
-            break
-        except: pass
-" 2>/dev/null || echo '')
+          # Extract the JSON line from mixed output, then parse with jq
+          BUILD_JSON=$(echo "$BUILD_OUTPUT" | grep -E '^\[|^\{' | tail -1 || echo '[]')
 
-          ARTIFACT_URL=$(echo "$BUILD_OUTPUT" | python3 -c "
-import sys, json
-lines = sys.stdin.read()
-for line in lines.splitlines():
-    line = line.strip()
-    if line.startswith('[') or line.startswith('{'):
-        try:
-            d = json.loads(line)
-            if isinstance(d, list): d = d[0]
-            artifacts = d.get('artifacts', {})
-            url = artifacts.get('buildUrl', '') or artifacts.get('applicationArchiveUrl', '')
-            print(url)
-            break
-        except: pass
-" 2>/dev/null || echo '')
+          BUILD_ID=$(echo "$BUILD_JSON" | jq -r 'if type == "array" then (.[0].id // "") else (.id // "") end' 2>/dev/null || echo '')
+          ARTIFACT_URL=$(echo "$BUILD_JSON" | jq -r 'if type == "array" then (.[0].artifacts.buildUrl // .[0].artifacts.applicationArchiveUrl // "") else (.artifacts.buildUrl // .artifacts.applicationArchiveUrl // "") end' 2>/dev/null || echo '')
 
-          # Fallback: use eas build:list to get the most recent completed build
+          # Fallback: query eas build:list for the most recent finished build
           if [ -z "$ARTIFACT_URL" ] || [ -z "$BUILD_ID" ]; then
             echo "⏳ JSON parse incomplete — querying eas build:list for latest build..."
             LATEST=$(eas build:list \
@@ -135,16 +109,8 @@ for line in lines.splitlines():
               --status finished \
               --limit 1 \
               --json 2>/dev/null || echo '[]')
-            BUILD_ID=$(echo "$LATEST" | python3 -c "
-import sys,json; d=json.load(sys.stdin); print(d[0]['id'] if d else '')
-" 2>/dev/null || echo '')
-            ARTIFACT_URL=$(echo "$LATEST" | python3 -c "
-import sys,json
-d=json.load(sys.stdin)
-if d:
-    a=d[0].get('artifacts',{})
-    print(a.get('buildUrl','') or a.get('applicationArchiveUrl',''))
-" 2>/dev/null || echo '')
+            BUILD_ID=$(echo "$LATEST" | jq -r '.[0].id // ""' 2>/dev/null || echo '')
+            ARTIFACT_URL=$(echo "$LATEST" | jq -r '.[0].artifacts.buildUrl // .[0].artifacts.applicationArchiveUrl // ""' 2>/dev/null || echo '')
           fi
 
           if [ -z "$BUILD_ID" ]; then
@@ -160,6 +126,7 @@ if d:
           echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_OUTPUT
           echo "✅ EAS Build ID: $BUILD_ID"
           echo "✅ APK artifact URL: $ARTIFACT_URL"
+
 
       # ─── 9. (Artifact URL already captured in step 8) ────────────────────────
       - name: Confirm EAS artifact URL
