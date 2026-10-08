@@ -120,7 +120,7 @@ export default function CommitteeDetailScreen({ route, navigation }) {
     if (committee) {
       setLoading(true);
       const payouts = committee.payouts || [];
-      const payoutsPerCycle = (committee.frequency === 'Weekly') ? (committee.payoutsPerCycle || 2) : 1;
+      const payoutsPerCycle = committee.payoutsPerCycle || 1;
       const lastPayoutIdx = payouts.length;
       const activeCycle = Math.min(committee.cycles, Math.floor(lastPayoutIdx / payoutsPerCycle) + 1);
       setCurrentCycle(activeCycle);
@@ -171,9 +171,9 @@ export default function CommitteeDetailScreen({ route, navigation }) {
 
   const isWeekly = committee?.frequency === 'Weekly';
   const paymentsPerCycle = committee?.paymentsPerCycle || 1;
-  const payoutsPerCycle = isWeekly ? (committee?.payoutsPerCycle || 2) : 1;
-    const committeeMembers = members.filter(m => committee?.members?.includes(m.id));
-  // Count occurrences of each member ID to support multiple contributions
+  const payoutsPerCycle = committee?.payoutsPerCycle || 1;
+  const committeeMembers = members.filter(m => committee?.members?.includes(m.id));
+  // Count occurrences of each member ID to support multiple contributions (including fractional representation)
   const memberCounts = {};
   committee?.members?.forEach(id => {
     memberCounts[id] = (memberCounts[id] || 0) + 1;
@@ -330,8 +330,8 @@ export default function CommitteeDetailScreen({ route, navigation }) {
         showSnack("🚫 No eligible winners!");
         return;
       }
-      // Full pot amount for the committee (this is the per-payout amount for weekly)
-      const payoutAmount = committee.totalAmount;
+      // Per-payout disbursement amount
+      const payoutAmount = (committee.totalAmount || 0) / (payoutsPerCycle || 1);
       await recordPayout(committeeId, winnerId, payoutAmount, currentCycle);
       // Schedule Auto-Reminder for Admin
       try {

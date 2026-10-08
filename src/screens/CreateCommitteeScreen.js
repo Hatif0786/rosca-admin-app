@@ -60,7 +60,7 @@ export default function CreateCommitteeScreen({ route, navigation }) {
   // Monthly committees always disburse exactly one pot per cycle; the payoutsPerCycle
   // input only applies to Weekly. Using the raw field for Monthly made the onboarding
   // "already paid out" list show twice as many historical slots as it should.
-  const effectivePayoutsPerCycle = frequency === 'Weekly' ? (parseInt(payoutsPerCycle) || 2) : 1;
+  const effectivePayoutsPerCycle = parseInt(payoutsPerCycle) || 1;
 
   // Auto-sync onboarding slots when cycle, frequency or order changes
   React.useEffect(() => {
@@ -89,15 +89,15 @@ export default function CreateCommitteeScreen({ route, navigation }) {
   };
 
   const incrementMember = (id) => {
-    setSelectedMembers(selectedMembers.map(m => m.id === id ? { ...m, count: m.count + 1 } : m));
+    setSelectedMembers(selectedMembers.map(m => m.id === id ? { ...m, count: Math.round((m.count + 0.5) * 10) / 10 } : m));
     setPayoutOrder([...payoutOrder, id]);
   };
 
   const decrementMember = (id) => {
     const existing = selectedMembers.find(m => m.id === id);
     if (!existing) return;
-    if (existing.count > 1) {
-      setSelectedMembers(selectedMembers.map(m => m.id === id ? { ...m, count: m.count - 1 } : m));
+    if (existing.count > 0.5) {
+      setSelectedMembers(selectedMembers.map(m => m.id === id ? { ...m, count: Math.round((m.count - 0.5) * 10) / 10 } : m));
       const idx = payoutOrder.lastIndexOf(id);
       if (idx > -1) {
         const newOrder = [...payoutOrder];
@@ -111,14 +111,15 @@ export default function CreateCommitteeScreen({ route, navigation }) {
   };
 
   // Auto‑calculated values
-  const numMembers = selectedMembers.reduce((sum, m) => sum + m.count, 0);
+  const numMembers = Math.round(selectedMembers.reduce((sum, m) => sum + m.count, 0) * 10) / 10;
   let calculatedContribution = 0;
   let calculatedPayout = 0;
   let calculatedCycles = 0;
 
+  const ppc = parseInt(payoutsPerCycle) || 1;
+
   if (frequency === 'Weekly' && numMembers > 0) {
     const wc = parseFloat(weeklyContribution) || 0;
-    const ppc = parseInt(payoutsPerCycle) || 2;
     const monthlyPool = wc * numMembers * 4;
     calculatedPayout = ppc > 0 ? monthlyPool / ppc : 0;
     calculatedCycles = ppc > 0 ? Math.ceil(numMembers / ppc) : 0;
@@ -126,8 +127,8 @@ export default function CreateCommitteeScreen({ route, navigation }) {
   } else if (frequency === 'Monthly' && numMembers > 0) {
     const ta = parseFloat(totalAmount) || 0;
     calculatedContribution = ta / numMembers;
-    calculatedPayout = ta;
-    calculatedCycles = numMembers;
+    calculatedPayout = ppc > 0 ? ta / ppc : ta;
+    calculatedCycles = ppc > 0 ? Math.ceil(numMembers / ppc) : Math.ceil(numMembers);
   }
 
   const handleSave = async () => {
@@ -143,7 +144,7 @@ export default function CreateCommitteeScreen({ route, navigation }) {
         for (const c of counts) {
           if (c.remaining > 0) {
             order.push(c.id);
-            c.remaining--;
+            c.remaining = Math.max(0, Math.round((c.remaining - 1) * 10) / 10);
           }
         }
       }
@@ -158,11 +159,11 @@ export default function CreateCommitteeScreen({ route, navigation }) {
       payoutMethod,
       members: finalOrder,
       startDate,
-      totalAmount: frequency === 'Monthly' ? parseFloat(totalAmount) : (parseFloat(weeklyContribution) * numMembers * 4) / (parseInt(payoutsPerCycle) || 2),
+      totalAmount: frequency === 'Monthly' ? parseFloat(totalAmount) : (parseFloat(weeklyContribution) * numMembers * 4) / (parseInt(payoutsPerCycle) || 1),
       contributionAmount: calculatedContribution,
       weeklyContribution: frequency === 'Weekly' ? parseFloat(weeklyContribution) : 0,
       cycles: calculatedCycles,
-      payoutsPerCycle: frequency === 'Weekly' ? (parseInt(payoutsPerCycle) || 2) : 1,
+      payoutsPerCycle: parseInt(payoutsPerCycle) || 1,
       paymentsPerCycle: frequency === 'Weekly' ? 4 : 1,
     };
 
@@ -229,45 +230,45 @@ export default function CreateCommitteeScreen({ route, navigation }) {
           theme={localPaperTheme}
         />
 
-        {frequency === 'Monthly' ? (
-          <TextInput
-            label="Total Pot Size (Rs)"
-            value={totalAmount}
-            onChangeText={setTotalAmount}
-            mode="outlined"
-            keyboardType="numeric"
-            style={styles.input}
-            placeholder="e.g. 50000"
-            outlineColor="#064E3B"
-            activeOutlineColor="#064E3B"
-            theme={localPaperTheme}
-          />
-        ) : (
-          <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          {frequency === 'Monthly' ? (
+            <TextInput
+              label="Total Pot Size (Rs)"
+              value={totalAmount}
+              onChangeText={setTotalAmount}
+              mode="outlined"
+              keyboardType="numeric"
+              style={[styles.input, { flex: 2 }]}
+              placeholder="e.g. 50000"
+              outlineColor="#064E3B"
+              activeOutlineColor="#064E3B"
+              theme={localPaperTheme}
+            />
+          ) : (
             <TextInput
               label="Weekly (Rs)"
               value={weeklyContribution}
               onChangeText={setWeeklyContribution}
               mode="outlined"
               keyboardType="numeric"
-              style={[styles.input, { flex: 1 }]}
+              style={[styles.input, { flex: 2 }]}
               outlineColor="#064E3B"
               activeOutlineColor="#064E3B"
               theme={localPaperTheme}
             />
-            <TextInput
-              label="Payouts/Mo"
-              value={payoutsPerCycle}
-              onChangeText={setPayoutsPerCycle}
-              mode="outlined"
-              keyboardType="numeric"
-              style={[styles.input, { flex: 1 }]}
-              outlineColor="#064E3B"
-              activeOutlineColor="#064E3B"
-              theme={localPaperTheme}
-            />
-          </View>
-        )}
+          )}
+          <TextInput
+            label="Payouts/Mo"
+            value={payoutsPerCycle}
+            onChangeText={setPayoutsPerCycle}
+            mode="outlined"
+            keyboardType="numeric"
+            style={[styles.input, { flex: 1 }]}
+            outlineColor="#064E3B"
+            activeOutlineColor="#064E3B"
+            theme={localPaperTheme}
+          />
+        </View>
 
         <Text style={styles.inputLabel}>Payout Distribution</Text>
         <SegmentedButtons

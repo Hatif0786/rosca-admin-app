@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://hatif0786.github.io/rosca-admin-app/sitemap.xml
