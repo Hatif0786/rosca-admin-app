@@ -1,21 +1,20 @@
 {
   "latestRelease": {
-    "version": "1.0.1",
-    "versionCode": 0,
+    "version": "1.1.0",
+    "versionCode": 6,
     "platform": "android",
     "status": "STABLE",
-    "downloadUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/download/v1.0.1/Rizqly-1.0.1.apk",
-    "buildId": "d96978b6-788a-4c06-80e9-77683f1b8f8f",
-    "githubReleaseUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/tag/v1.0.1",
-    "apkFilename": "Rizqly-1.0.1.apk",
-    "releaseDate": "2026-09-22",
+    "downloadUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/download/v1.1.0/Rizqly-1.1.0.apk",
+    "buildId": "1.1.0-release",
+    "githubReleaseUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/tag/v1.1.0",
+    "apkFilename": "Rizqly-1.1.0.apk",
+    "releaseDate": "2026-10-09",
     "minimumSupportedVersion": "1.0.0",
     "releaseNotes": [
-      "WhatsApp QR Code connection — Scan a QR code from another device to link WhatsApp.",
-      "WhatsApp Pairing Code connection — Link using a phone number pairing code on the same device.",
-      "Session status monitoring — Bounded polling with auto-recovery for WhatsApp sessions.",
-      "In-app update notifications — Automatic alert when a new stable version is available.",
-      "General stability improvements and Edge Function integration fixes."
+      "Fractional Contributions Support — Members can now contribute fractional shares such as 0.5, 1.5, 2.5, etc.",
+      "Multi-Payout Monthly Committees — Monthly committees now support multiple payout disbursements per cycle (1 to N).",
+      "Enhanced Website & SEO — Comprehensive metadata, Open Graph cards, sitemap.xml, and structured schema data.",
+      "General stability improvements and ledger audit trail enhancements."
     ]
   },
   "pendingRelease": null,
