@@ -1,24 +1,39 @@
 {
   "latestRelease": {
-    "version": "1.1.0",
-    "versionCode": 6,
+    "version": "1.1.1",
+    "versionCode": 0,
     "platform": "android",
     "status": "STABLE",
-    "downloadUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/download/v1.1.0/Rizqly-1.1.0.apk",
-    "buildId": "1.1.0-release",
-    "githubReleaseUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/tag/v1.1.0",
-    "apkFilename": "Rizqly-1.1.0.apk",
+    "downloadUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/download/v1.1.1/Rizqly-1.1.1.apk",
+    "buildId": "29db96eb-9d13-427e-94fd-91689232356c",
+    "githubReleaseUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/tag/v1.1.1",
+    "apkFilename": "Rizqly-1.1.1.apk",
     "releaseDate": "2026-10-09",
     "minimumSupportedVersion": "1.0.0",
     "releaseNotes": [
-      "Fractional Contributions Support — Members can now contribute fractional shares such as 0.5, 1.5, 2.5, etc.",
-      "Multi-Payout Monthly Committees — Monthly committees now support multiple payout disbursements per cycle (1 to N).",
-      "Enhanced Website & SEO — Comprehensive metadata, Open Graph cards, sitemap.xml, and structured schema data.",
-      "General stability improvements and ledger audit trail enhancements."
+      "Rizqly v1.1.1 release."
     ]
   },
   "pendingRelease": null,
   "previousReleases": [
+    {
+      "version": "1.1.0",
+      "versionCode": 6,
+      "platform": "android",
+      "status": "SUPERSEDED",
+      "downloadUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/download/v1.1.0/Rizqly-1.1.0.apk",
+      "buildId": "1.1.0-release",
+      "githubReleaseUrl": "https://github.com/Hatif0786/rosca-admin-app/releases/tag/v1.1.0",
+      "apkFilename": "Rizqly-1.1.0.apk",
+      "releaseDate": "2026-10-09",
+      "minimumSupportedVersion": "1.0.0",
+      "releaseNotes": [
+        "Fractional Contributions Support — Members can now contribute fractional shares such as 0.5, 1.5, 2.5, etc.",
+        "Multi-Payout Monthly Committees — Monthly committees now support multiple payout disbursements per cycle (1 to N).",
+        "Enhanced Website & SEO — Comprehensive metadata, Open Graph cards, sitemap.xml, and structured schema data.",
+        "General stability improvements and ledger audit trail enhancements."
+      ]
+    },
     {
       "version": "1.0.1",
       "versionCode": 5,
